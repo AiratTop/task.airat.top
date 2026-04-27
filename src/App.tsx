@@ -1101,6 +1101,7 @@ export default function App() {
     completed: tasks.filter(t => t.completed).length,
     active: tasks.filter(t => !t.completed).length,
   }), [tasks]);
+  const progressPercent = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
   const tagSuggestions = useMemo(
     () => Array.from(new Set(tasks.flatMap(task => normalizeTags(task.tags ?? [])))).sort(),
@@ -1178,9 +1179,18 @@ export default function App() {
               className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             />
           </div>
-          <div className="flex items-center justify-between px-4 py-2.5 bg-card border border-border rounded-lg text-sm">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">{stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%</span>
+          <div className="flex items-center gap-4 px-4 py-2.5 bg-card border border-border rounded-lg text-sm">
+            <span className="text-muted-foreground shrink-0">Progress</span>
+            <div
+              className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+              aria-hidden="true"
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <span className="w-9 text-right font-medium">{progressPercent}%</span>
           </div>
         </div>
 
