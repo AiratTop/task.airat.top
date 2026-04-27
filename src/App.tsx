@@ -847,15 +847,17 @@ export default function App() {
           </a>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={exportTasks}
-              className="p-2 rounded-full hover:bg-muted transition-colors"
-              title="Export Tasks"
-              aria-label="Export tasks as JSON"
-            >
-              <Download className="w-5 h-5" />
-            </button>
+            {tasks.length > 0 && (
+              <button
+                type="button"
+                onClick={exportTasks}
+                className="p-2 rounded-full hover:bg-muted transition-colors"
+                title="Export Tasks"
+                aria-label="Export tasks as JSON"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
             <button 
               onClick={() =>
                 setSettings((s) => ({
