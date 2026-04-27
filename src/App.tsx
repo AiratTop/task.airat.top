@@ -21,7 +21,7 @@ import {
   ChevronDown, 
   ChevronUp,
   Search,
-  Filter,
+  ArrowUpDown,
   MoreVertical,
   X,
   Loader2,
@@ -520,9 +520,13 @@ export default function App() {
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         const completed = !t.completed;
+        const completedAt = completed ? Date.now() : undefined;
         return updateTaskRecord(t, { 
           completed, 
-          completedAt: completed ? Date.now() : undefined 
+          completedAt,
+          subtasks: completed
+            ? t.subtasks.map(st => ({ ...st, completed: true }))
+            : t.subtasks,
         });
       }
       return t;
@@ -774,8 +778,12 @@ export default function App() {
         const updatedSubtasks = t.subtasks.map(st => 
           st.id === subtaskId ? { ...st, completed: !st.completed } : st
         );
-        // Auto-complete parent if all subtasks are done? Maybe not, let user decide.
-        return updateTaskRecord(t, { subtasks: updatedSubtasks });
+        const completed = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
+        return updateTaskRecord(t, {
+          subtasks: updatedSubtasks,
+          completed,
+          completedAt: completed ? Date.now() : undefined,
+        });
       }
       return t;
     }));
@@ -1132,7 +1140,7 @@ export default function App() {
                   aria-label="Sort tasks"
                   aria-expanded={isSortMenuOpen}
                 >
-                  <Filter className="w-4.5 h-4.5" />
+                  <ArrowUpDown className="w-4.5 h-4.5" />
                 </button>
                 <AnimatePresence>
                   {isSortMenuOpen && (
