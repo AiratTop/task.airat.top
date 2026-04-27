@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Clock,
   Plus, 
+  Mic,
+  MicOff,
   Trash2, 
   CheckCircle2, 
   Circle, 
@@ -39,6 +41,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Load data
   useEffect(() => {
@@ -64,6 +68,12 @@ export default function App() {
     }
   }, [settings, isLoaded]);
 
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+    };
+  }, []);
+
   // Theme management
   useEffect(() => {
     const root = window.document.documentElement;
@@ -88,6 +98,72 @@ export default function App() {
 
   const clearCompleted = () => {
     setTasks(prev => prev.filter(t => !t.completed));
+  };
+
+  const handleVoiceInput = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognitionConstructor =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionConstructor) {
+      setError("Voice input is not supported in this browser");
+      return;
+    }
+
+    const recognition = new SpeechRecognitionConstructor();
+    const initialText = newTaskTitle.trim();
+    let transcript = "";
+
+    recognitionRef.current = recognition;
+    recognition.lang = navigator.language || "ru-RU";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      setError(null);
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const text = result[0]?.transcript ?? "";
+
+        if (result.isFinal) {
+          finalTranscript += text;
+        } else {
+          interimTranscript += text;
+        }
+      }
+
+      if (finalTranscript.trim()) {
+        transcript = `${transcript} ${finalTranscript}`.trim();
+      }
+
+      const currentTranscript = `${transcript} ${interimTranscript}`.trim();
+      setNewTaskTitle([initialText, currentTranscript].filter(Boolean).join(" "));
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error !== "no-speech" && event.error !== "aborted") {
+        setError("Could not recognize speech. Please try again.");
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.start();
   };
 
   const addTask = async (e?: React.FormEvent) => {
@@ -293,7 +369,7 @@ export default function App() {
               if (error) setError(null);
             }}
             className={cn(
-              "w-full pl-4 pr-14 py-4 bg-card border-2 border-border rounded-2xl text-lg focus:outline-none focus:border-primary transition-all shadow-sm group-focus-within:shadow-md",
+              "w-full pl-4 pr-28 py-4 bg-card border-2 border-border rounded-2xl text-lg focus:outline-none focus:border-primary transition-all shadow-sm group-focus-within:shadow-md",
               error && "border-destructive focus:border-destructive"
             )}
           />
@@ -306,6 +382,20 @@ export default function App() {
               {error}
             </motion.p>
           )}
+          <button
+            type="button"
+            onClick={handleVoiceInput}
+            className={cn(
+              "absolute right-14 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all hover:scale-105 active:scale-95",
+              isListening
+                ? "bg-destructive text-destructive-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+            title={isListening ? "Stop voice input" : "Voice input"}
+            aria-label={isListening ? "Stop voice input" : "Start voice input"}
+          >
+            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+          </button>
           <button 
             type="submit"
             disabled={!newTaskTitle.trim()}
