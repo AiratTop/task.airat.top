@@ -16,6 +16,7 @@ import {
   Pencil,
   Check,
   Flag,
+  RotateCcw,
   ChevronDown, 
   ChevronUp,
   Search,
@@ -47,6 +48,12 @@ const TASK_PRIORITIES: { value: TaskPriority; label: string; className: string }
 
 const getTaskPriority = (task: Task): TaskPriority => task.priority ?? "normal";
 
+type UndoAction = {
+  id: string;
+  message: string;
+  restore: () => void;
+};
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [settings, setSettings] = useState<AppSettings>({ theme: "system" });
@@ -75,7 +82,9 @@ export default function App() {
     taskId: string;
     subtaskId: string;
   } | null>(null);
+  const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const undoTimerRef = useRef<number | null>(null);
 
   // Load data
   useEffect(() => {
@@ -104,6 +113,9 @@ export default function App() {
   useEffect(() => {
     return () => {
       recognitionRef.current?.abort();
+      if (undoTimerRef.current) {
+        window.clearTimeout(undoTimerRef.current);
+      }
     };
   }, []);
 
@@ -131,6 +143,30 @@ export default function App() {
 
   const clearCompleted = () => {
     setTasks(prev => prev.filter(t => !t.completed));
+  };
+
+  const showUndo = (action: UndoAction) => {
+    if (undoTimerRef.current) {
+      window.clearTimeout(undoTimerRef.current);
+    }
+
+    setUndoAction(action);
+    undoTimerRef.current = window.setTimeout(() => {
+      setUndoAction(null);
+      undoTimerRef.current = null;
+    }, 3000);
+  };
+
+  const handleUndo = () => {
+    if (!undoAction) return;
+
+    if (undoTimerRef.current) {
+      window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+
+    undoAction.restore();
+    setUndoAction(null);
   };
 
   const handleVoiceInput = () => {
@@ -272,6 +308,25 @@ export default function App() {
   };
 
   const deleteTask = (id: string) => {
+    const taskIndex = tasks.findIndex(t => t.id === id);
+    const deletedTask = tasks[taskIndex];
+
+    if (!deletedTask) return;
+
+    showUndo({
+      id: createId(),
+      message: "Task deleted",
+      restore: () => {
+        setTasks(prev => {
+          if (prev.some(t => t.id === deletedTask.id)) return prev;
+
+          const next = [...prev];
+          next.splice(Math.min(taskIndex, next.length), 0, deletedTask);
+          return next;
+        });
+      },
+    });
+
     setTasks(prev => prev.filter(t => t.id !== id));
     if (editingTaskId === id) {
       setEditingTaskId(null);
@@ -481,6 +536,31 @@ export default function App() {
   };
 
   const deleteSubtask = (taskId: string, subtaskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    const subtaskIndex = task?.subtasks.findIndex(st => st.id === subtaskId) ?? -1;
+    const deletedSubtask = task?.subtasks[subtaskIndex];
+
+    if (!task || !deletedSubtask) return;
+
+    showUndo({
+      id: createId(),
+      message: "Subtask deleted",
+      restore: () => {
+        setTasks(prev => prev.map(t => {
+          if (t.id !== taskId || t.subtasks.some(st => st.id === deletedSubtask.id)) return t;
+
+          const subtasks = [...t.subtasks];
+          subtasks.splice(Math.min(subtaskIndex, subtasks.length), 0, deletedSubtask);
+
+          return {
+            ...t,
+            subtasks,
+            isDecomposed: true,
+          };
+        }));
+      },
+    });
+
     setTasks(prev => prev.map(t => {
       if (t.id !== taskId) return t;
 
@@ -1232,6 +1312,28 @@ export default function App() {
           )}
         </div>
       </main>
+
+      <AnimatePresence>
+        {undoAction && (
+          <motion.div
+            key={undoAction.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-lg"
+          >
+            <span className="font-medium">{undoAction.message}</span>
+            <button
+              type="button"
+              onClick={handleUndo}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Undo
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <footer className="border-t border-border bg-muted/20 py-16">
