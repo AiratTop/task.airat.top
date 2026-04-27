@@ -215,6 +215,7 @@ export default function App() {
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [dueDateFilter, setDueDateFilter] = useState<DueDateFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("manual");
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -240,6 +241,7 @@ export default function App() {
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const undoTimerRef = useRef<number | null>(null);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Load data
   useEffect(() => {
@@ -277,6 +279,23 @@ export default function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isSortMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        sortMenuRef.current &&
+        event.target instanceof Node &&
+        !sortMenuRef.current.contains(event.target)
+      ) {
+        setIsSortMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [isSortMenuOpen]);
 
   // Theme management
   useEffect(() => {
@@ -1132,37 +1151,68 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
-              <Filter className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
-              {SORT_MODES.map((mode) => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => setSortMode(mode.value)}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
-                    sortMode === mode.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
-                  )}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
           </div>
-          {stats.completed > 0 && (
-            <button 
-              onClick={clearCompleted}
-              className="group flex items-center p-2 text-destructive hover:bg-destructive/10 rounded-full transition-all shrink-0"
-              title="Clear Completed"
-            >
-              <Trash2 className="w-4.5 h-4.5" />
-              <span className="overflow-hidden whitespace-nowrap text-xs font-medium transition-all duration-300 max-w-0 opacity-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-2">
-                Clear Completed
-              </span>
-            </button>
-          )}
+          <div className="flex shrink-0 items-start gap-2">
+            <div ref={sortMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSortMenuOpen(open => !open)}
+                className={cn(
+                  "flex items-center p-2 rounded-full transition-all",
+                  sortMode === "manual"
+                    ? "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : "bg-primary/10 text-primary hover:bg-primary/15"
+                )}
+                title={`Sort: ${SORT_MODES.find(mode => mode.value === sortMode)?.label ?? "Manual"}`}
+                aria-label="Sort tasks"
+                aria-expanded={isSortMenuOpen}
+              >
+                <Filter className="w-4.5 h-4.5" />
+              </button>
+              <AnimatePresence>
+                {isSortMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    className="absolute right-0 top-11 z-30 w-44 rounded-xl border border-border bg-card p-1.5 text-sm shadow-lg"
+                  >
+                    {SORT_MODES.map((mode) => (
+                      <button
+                        key={mode.value}
+                        type="button"
+                        onClick={() => {
+                          setSortMode(mode.value);
+                          setIsSortMenuOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors",
+                          sortMode === mode.value
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <span>{mode.label}</span>
+                        {sortMode === mode.value && <Check className="w-4 h-4" />}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            {stats.completed > 0 && (
+              <button 
+                onClick={clearCompleted}
+                className="group flex items-center p-2 text-destructive hover:bg-destructive/10 rounded-full transition-all"
+                title="Clear Completed"
+              >
+                <Trash2 className="w-4.5 h-4.5" />
+                <span className="overflow-hidden whitespace-nowrap text-xs font-medium transition-all duration-300 max-w-0 opacity-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-2">
+                  Clear Completed
+                </span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Task List */}
