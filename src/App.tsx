@@ -18,14 +18,11 @@ import {
   Flag,
   RotateCcw,
   Download,
-  ChevronDown, 
-  ChevronUp,
   Search,
   ArrowUpDown,
   MoreVertical,
   X,
-  Loader2,
-  GripVertical
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -242,6 +239,16 @@ export default function App() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const undoTimerRef = useRef<number | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const touchDraggedTaskIdRef = useRef<string | null>(null);
+  const touchDraggedSubtaskRef = useRef<{ taskId: string; subtaskId: string } | null>(null);
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   // Load data
   useEffect(() => {
@@ -281,6 +288,7 @@ export default function App() {
       if (undoTimerRef.current) {
         window.clearTimeout(undoTimerRef.current);
       }
+      clearLongPressTimer();
     };
   }, []);
 
@@ -715,20 +723,6 @@ export default function App() {
     });
   };
 
-  const moveTaskByVisibleStep = (taskId: string, direction: -1 | 1) => {
-    const visibleIndex = filteredTasks.findIndex(t => t.id === taskId);
-    const targetTask = filteredTasks[visibleIndex + direction];
-
-    if (!targetTask) return;
-
-    if (direction < 0) {
-      moveTaskBefore(taskId, targetTask.id);
-      return;
-    }
-
-    moveTaskAfter(taskId, targetTask.id);
-  };
-
   const handleTaskDrop = (targetTaskId: string, event: React.DragEvent<HTMLDivElement>) => {
     if (draggedTaskId) {
       const bounds = event.currentTarget.getBoundingClientRect();
@@ -741,6 +735,52 @@ export default function App() {
       }
     }
     setDraggedTaskId(null);
+  };
+
+  const finishPointerReorder = (event: React.PointerEvent<HTMLElement>) => {
+    clearLongPressTimer();
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    touchDraggedTaskIdRef.current = null;
+    touchDraggedSubtaskRef.current = null;
+    setDraggedTaskId(null);
+    setDraggedSubtask(null);
+  };
+
+  const startTaskPointerReorder = (taskId: string, event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse" || sortMode !== "manual") return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(() => {
+      touchDraggedTaskIdRef.current = taskId;
+      setDraggedTaskId(taskId);
+    }, 250);
+  };
+
+  const handleTaskPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const activeTaskId = touchDraggedTaskIdRef.current;
+    if (!activeTaskId) return;
+
+    event.preventDefault();
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-task-id]");
+    const targetTaskId = target?.dataset.taskId;
+
+    if (!target || !targetTaskId || targetTaskId === activeTaskId) return;
+
+    const bounds = target.getBoundingClientRect();
+    const shouldMoveAfter = event.clientY > bounds.top + bounds.height / 2;
+
+    if (shouldMoveAfter) {
+      moveTaskAfter(activeTaskId, targetTaskId);
+    } else {
+      moveTaskBefore(activeTaskId, targetTaskId);
+    }
   };
 
   const handleDecompose = async (id: string) => {
@@ -928,18 +968,6 @@ export default function App() {
     }));
   };
 
-  const moveSubtaskByStep = (taskId: string, subtaskId: string, direction: -1 | 1) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    const subtaskIndex = task.subtasks.findIndex(st => st.id === subtaskId);
-    const targetSubtask = task.subtasks[subtaskIndex + direction];
-
-    if (!targetSubtask) return;
-
-    moveSubtask(taskId, subtaskId, targetSubtask.id, direction < 0 ? "before" : "after");
-  };
-
   const handleSubtaskDrop = (
     taskId: string,
     targetSubtaskId: string,
@@ -952,6 +980,47 @@ export default function App() {
 
     moveSubtask(taskId, draggedSubtask.subtaskId, targetSubtaskId, placement);
     setDraggedSubtask(null);
+  };
+
+  const startSubtaskPointerReorder = (
+    taskId: string,
+    subtaskId: string,
+    event: React.PointerEvent<HTMLElement>
+  ) => {
+    if (event.pointerType === "mouse") return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(() => {
+      touchDraggedSubtaskRef.current = { taskId, subtaskId };
+      setDraggedSubtask({ taskId, subtaskId });
+    }, 250);
+  };
+
+  const handleSubtaskPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const activeSubtask = touchDraggedSubtaskRef.current;
+    if (!activeSubtask) return;
+
+    event.preventDefault();
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-task-id][data-subtask-id]");
+    const targetTaskId = target?.dataset.taskId;
+    const targetSubtaskId = target?.dataset.subtaskId;
+
+    if (
+      !target ||
+      targetTaskId !== activeSubtask.taskId ||
+      !targetSubtaskId ||
+      targetSubtaskId === activeSubtask.subtaskId
+    ) {
+      return;
+    }
+
+    const bounds = target.getBoundingClientRect();
+    const placement = event.clientY > bounds.top + bounds.height / 2 ? "after" : "before";
+
+    moveSubtask(activeSubtask.taskId, activeSubtask.subtaskId, targetSubtaskId, placement);
   };
 
   const filteredTasks = useMemo(() => {
@@ -1243,9 +1312,10 @@ export default function App() {
         {/* Task List */}
         <div className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {filteredTasks.map((task, index) => (
+            {filteredTasks.map((task) => (
               <motion.div
                 key={task.id}
+                data-task-id={task.id}
                 layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1271,51 +1341,6 @@ export default function App() {
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex flex-col items-center gap-1 text-muted-foreground">
-                    <button
-                      type="button"
-                      draggable={sortMode === "manual"}
-                      onDragStart={(event) => {
-                        if (sortMode !== "manual") {
-                          event.preventDefault();
-                          return;
-                        }
-                        setDraggedTaskId(task.id);
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", task.id);
-                      }}
-                      className={cn(
-                        "rounded-md p-1 transition-colors hover:bg-muted",
-                        sortMode === "manual"
-                          ? "cursor-grab active:cursor-grabbing"
-                          : "cursor-not-allowed opacity-30"
-                      )}
-                      title={sortMode === "manual" ? "Drag to reorder" : "Switch to Manual sort to reorder"}
-                      aria-label="Drag to reorder"
-                    >
-                      <GripVertical className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveTaskByVisibleStep(task.id, -1)}
-                      disabled={sortMode !== "manual" || index === 0}
-                      className="rounded-md p-1 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
-                      title="Move up"
-                      aria-label="Move task up"
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveTaskByVisibleStep(task.id, 1)}
-                      disabled={sortMode !== "manual" || index === filteredTasks.length - 1}
-                      className="rounded-md p-1 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
-                      title="Move down"
-                      aria-label="Move task down"
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </button>
-                  </div>
                   <button 
                     onClick={() => toggleTask(task.id)}
                     className="mt-1 text-primary transition-transform hover:scale-110 active:scale-90"
@@ -1361,10 +1386,29 @@ export default function App() {
                           )}
                         </div>
                       ) : (
-                        <h3 className={cn(
-                          "text-lg font-medium leading-tight break-words",
-                          task.completed && "line-through text-muted-foreground"
-                        )}>
+                        <h3
+                          draggable={sortMode === "manual"}
+                          onPointerDown={(event) => startTaskPointerReorder(task.id, event)}
+                          onPointerMove={handleTaskPointerMove}
+                          onPointerUp={finishPointerReorder}
+                          onPointerCancel={finishPointerReorder}
+                          onDragStart={(event) => {
+                            if (sortMode !== "manual") {
+                              event.preventDefault();
+                              return;
+                            }
+
+                            setDraggedTaskId(task.id);
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", task.id);
+                          }}
+                          className={cn(
+                            "text-lg font-medium leading-tight break-words",
+                            sortMode === "manual" && "cursor-grab select-none touch-none active:cursor-grabbing",
+                            task.completed && "line-through text-muted-foreground"
+                          )}
+                          title={sortMode === "manual" ? "Drag to reorder" : undefined}
+                        >
                           {task.title}
                         </h3>
                       )}
@@ -1570,13 +1614,15 @@ export default function App() {
                           Subtasks
                         </div>
                       )}
-                      {task.subtasks.map((st, subtaskIndex) => {
+                      {task.subtasks.map((st) => {
                         const isEditingSubtask =
                           editingSubtask?.taskId === task.id && editingSubtask.subtaskId === st.id;
 
                         return (
                           <div
                             key={st.id}
+                            data-task-id={task.id}
+                            data-subtask-id={st.id}
                             onDragOver={(event) => {
                               if (
                                 draggedSubtask &&
@@ -1602,42 +1648,6 @@ export default function App() {
                                 "ring-1 ring-primary/20"
                             )}
                           >
-                            <div className="flex items-center gap-0.5 text-muted-foreground">
-                              <button
-                                type="button"
-                                draggable
-                                onDragStart={(event) => {
-                                  setDraggedSubtask({ taskId: task.id, subtaskId: st.id });
-                                  event.dataTransfer.effectAllowed = "move";
-                                  event.dataTransfer.setData("text/plain", st.id);
-                                }}
-                                className="cursor-grab rounded p-0.5 transition-colors hover:bg-muted active:cursor-grabbing"
-                                title="Drag to reorder subtask"
-                                aria-label="Drag to reorder subtask"
-                              >
-                                <GripVertical className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveSubtaskByStep(task.id, st.id, -1)}
-                                disabled={subtaskIndex === 0}
-                                className="rounded p-0.5 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
-                                title="Move subtask up"
-                                aria-label="Move subtask up"
-                              >
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveSubtaskByStep(task.id, st.id, 1)}
-                                disabled={subtaskIndex === task.subtasks.length - 1}
-                                className="rounded p-0.5 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
-                                title="Move subtask down"
-                                aria-label="Move subtask down"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
                             <button 
                               onClick={() => toggleSubtask(task.id, st.id)}
                               className="mt-0.5 text-muted-foreground hover:text-primary transition-colors"
@@ -1686,10 +1696,23 @@ export default function App() {
                                   )}
                                 </>
                               ) : (
-                                <span className={cn(
-                                  "text-sm leading-6 break-words",
-                                  st.completed && "line-through text-muted-foreground"
-                                )}>
+                                <span
+                                  draggable
+                                  onPointerDown={(event) => startSubtaskPointerReorder(task.id, st.id, event)}
+                                  onPointerMove={handleSubtaskPointerMove}
+                                  onPointerUp={finishPointerReorder}
+                                  onPointerCancel={finishPointerReorder}
+                                  onDragStart={(event) => {
+                                    setDraggedSubtask({ taskId: task.id, subtaskId: st.id });
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", st.id);
+                                  }}
+                                  className={cn(
+                                    "block text-sm leading-6 break-words cursor-grab select-none touch-none active:cursor-grabbing",
+                                    st.completed && "line-through text-muted-foreground"
+                                  )}
+                                  title="Drag to reorder subtask"
+                                >
                                   {st.title}
                                 </span>
                               )}
