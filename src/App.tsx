@@ -741,14 +741,18 @@ export default function App() {
   };
 
   const filteredTasks = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
     return tasks.filter(t => {
       const matchesFilter = 
         filter === "all" ? true :
         filter === "active" ? !t.completed :
         t.completed;
       
-      const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesSearch = !query ||
+        t.title.toLowerCase().includes(query) ||
+        t.tags.some(tag => tag.toLowerCase().includes(query)) ||
+        t.subtasks.some(subtask => subtask.title.toLowerCase().includes(query));
       
       return matchesFilter && matchesSearch;
     });
