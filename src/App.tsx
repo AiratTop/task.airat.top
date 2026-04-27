@@ -1393,7 +1393,7 @@ export default function App() {
                 <div className="flex items-start gap-3">
                   <button 
                     onClick={() => toggleTask(task.id)}
-                    className="mt-1 text-primary transition-transform hover:scale-110 active:scale-90"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-primary transition-transform hover:scale-110 active:scale-90"
                   >
                     {task.completed ? (
                       <CheckCircle2 className="w-6 h-6 fill-primary text-primary-foreground" />
@@ -1683,7 +1683,7 @@ export default function App() {
                           >
                             <button 
                               onClick={() => toggleSubtask(task.id, st.id)}
-                              className="mt-0.5 text-muted-foreground hover:text-primary transition-colors"
+                              className="flex h-6 w-4 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-primary"
                             >
                               {st.completed ? (
                                 <CheckCircle2 className="w-4 h-4 text-primary" />
