@@ -16,6 +16,7 @@ Public local-first task manager with manual planning controls and optional AI-as
 
 ## Product Behavior
 - Tasks are local-first and persisted in `localStorage`.
+- First-time users get a single English demo task if the task storage key does not exist yet.
 - Tasks support manual ordering, inline editing, priorities (`low`, `normal`, `high`), and manual due dates.
 - Subtasks support manual add/edit/delete/complete and manual ordering.
 - Destructive task/subtask actions should preserve the existing 3-second undo pattern where practical.

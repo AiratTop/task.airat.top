@@ -52,6 +52,12 @@ const shouldSkipAiAnalysis = (title: string) => title.trim().toLowerCase() === "
 
 const getTodayDateKey = () => format(new Date(), "yyyy-MM-dd");
 
+const getDateKeyInDays = (daysFromToday: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromToday);
+  return format(date, "yyyy-MM-dd");
+};
+
 const getDueDateStatus = (task: Task) => {
   if (!task.dueDate) return null;
 
@@ -82,6 +88,36 @@ type UndoAction = {
   message: string;
   restore: () => void;
 };
+
+const createDemoTask = (): Task => ({
+  id: createId(),
+  title: "Explore Task.Airat.Top features",
+  completed: false,
+  createdAt: Date.now(),
+  priority: "high",
+  dueDate: getDateKeyInDays(1),
+  tags: ["demo", "workflow", "local-first"],
+  subtasks: [
+    {
+      id: createId(),
+      title: "Edit this task title inline",
+      completed: false,
+    },
+    {
+      id: createId(),
+      title: "Drag tasks and subtasks to reorder them",
+      completed: false,
+    },
+    {
+      id: createId(),
+      title: "Set a manual due date and priority",
+      completed: false,
+    },
+  ],
+  isDecomposed: true,
+  isGeneratingTags: false,
+  isDecomposing: false,
+});
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -120,7 +156,11 @@ export default function App() {
     const savedTasks = localStorage.getItem(STORAGE_KEY);
     const savedSettings = localStorage.getItem(SETTINGS_KEY);
     
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
+    if (savedTasks) {
+      setTasks(JSON.parse(savedTasks));
+    } else {
+      setTasks([createDemoTask()]);
+    }
     if (savedSettings) setSettings(JSON.parse(savedSettings));
     
     setIsLoaded(true);
