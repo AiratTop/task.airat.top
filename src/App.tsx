@@ -33,6 +33,11 @@ import { analyzeTask, decomposeTask } from "./services/gemini";
 const STORAGE_KEY = "airat_tasks_v1";
 const SETTINGS_KEY = "airat_settings_v1";
 
+const createId = () =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : Math.random().toString(36).substring(2, 11);
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [settings, setSettings] = useState<AppSettings>({ theme: "system" });
@@ -49,6 +54,18 @@ export default function App() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState("");
   const [editingTaskError, setEditingTaskError] = useState<string | null>(null);
+  const [newSubtaskTitles, setNewSubtaskTitles] = useState<Record<string, string>>({});
+  const [newSubtaskErrors, setNewSubtaskErrors] = useState<Record<string, string | null>>({});
+  const [editingSubtask, setEditingSubtask] = useState<{
+    taskId: string;
+    subtaskId: string;
+    title: string;
+    error: string | null;
+  } | null>(null);
+  const [draggedSubtask, setDraggedSubtask] = useState<{
+    taskId: string;
+    subtaskId: string;
+  } | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Load data
@@ -197,9 +214,7 @@ export default function App() {
     setError(null);
 
     const newTask: Task = {
-      id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
-        ? crypto.randomUUID() 
-        : Math.random().toString(36).substring(2, 11),
+      id: createId(),
       title: title,
       completed: false,
       createdAt: Date.now(),
@@ -386,7 +401,7 @@ export default function App() {
     try {
       const subtaskTitles = await decomposeTask(task.title);
       const newSubtasks: SubTask[] = subtaskTitles.map(title => ({
-        id: crypto.randomUUID(),
+        id: createId(),
         title,
         completed: false,
       }));
@@ -417,6 +432,148 @@ export default function App() {
       }
       return t;
     }));
+  };
+
+  const validateSubtaskTitle = (title: string) => {
+    if (title.length < 2) return "Subtask is too short (min 2 chars)";
+    if (title.length > 120) return "Subtask is too long (max 120 chars)";
+    return null;
+  };
+
+  const addSubtask = (taskId: string) => {
+    const title = (newSubtaskTitles[taskId] ?? "").trim();
+    const validationError = validateSubtaskTitle(title);
+
+    if (validationError) {
+      setNewSubtaskErrors(prev => ({ ...prev, [taskId]: validationError }));
+      return;
+    }
+
+    const newSubtask: SubTask = {
+      id: createId(),
+      title,
+      completed: false,
+    };
+
+    setTasks(prev => prev.map(t =>
+      t.id === taskId
+        ? { ...t, subtasks: [...t.subtasks, newSubtask], isDecomposed: true }
+        : t
+    ));
+    setNewSubtaskTitles(prev => ({ ...prev, [taskId]: "" }));
+    setNewSubtaskErrors(prev => ({ ...prev, [taskId]: null }));
+  };
+
+  const deleteSubtask = (taskId: string, subtaskId: string) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+
+      const subtasks = t.subtasks.filter(st => st.id !== subtaskId);
+      return {
+        ...t,
+        subtasks,
+        isDecomposed: subtasks.length > 0,
+      };
+    }));
+
+    if (editingSubtask?.taskId === taskId && editingSubtask.subtaskId === subtaskId) {
+      setEditingSubtask(null);
+    }
+  };
+
+  const startEditingSubtask = (taskId: string, subtask: SubTask) => {
+    setEditingSubtask({
+      taskId,
+      subtaskId: subtask.id,
+      title: subtask.title,
+      error: null,
+    });
+  };
+
+  const cancelEditingSubtask = () => {
+    setEditingSubtask(null);
+  };
+
+  const saveEditedSubtask = () => {
+    if (!editingSubtask) return;
+
+    const title = editingSubtask.title.trim();
+    const validationError = validateSubtaskTitle(title);
+
+    if (validationError) {
+      setEditingSubtask({ ...editingSubtask, error: validationError });
+      return;
+    }
+
+    setTasks(prev => prev.map(t => {
+      if (t.id !== editingSubtask.taskId) return t;
+
+      return {
+        ...t,
+        subtasks: t.subtasks.map(st =>
+          st.id === editingSubtask.subtaskId ? { ...st, title } : st
+        ),
+      };
+    }));
+    setEditingSubtask(null);
+  };
+
+  const moveSubtask = (
+    taskId: string,
+    subtaskId: string,
+    targetSubtaskId: string,
+    placement: "before" | "after"
+  ) => {
+    if (subtaskId === targetSubtaskId) return;
+
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+
+      const fromIndex = t.subtasks.findIndex(st => st.id === subtaskId);
+      const targetIndex = t.subtasks.findIndex(st => st.id === targetSubtaskId);
+
+      if (fromIndex === -1 || targetIndex === -1) return t;
+
+      const subtasks = [...t.subtasks];
+      const [movedSubtask] = subtasks.splice(fromIndex, 1);
+      const adjustedTargetIndex = subtasks.findIndex(st => st.id === targetSubtaskId);
+
+      if (adjustedTargetIndex === -1) return t;
+
+      subtasks.splice(
+        placement === "after" ? adjustedTargetIndex + 1 : adjustedTargetIndex,
+        0,
+        movedSubtask
+      );
+
+      return { ...t, subtasks };
+    }));
+  };
+
+  const moveSubtaskByStep = (taskId: string, subtaskId: string, direction: -1 | 1) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const subtaskIndex = task.subtasks.findIndex(st => st.id === subtaskId);
+    const targetSubtask = task.subtasks[subtaskIndex + direction];
+
+    if (!targetSubtask) return;
+
+    moveSubtask(taskId, subtaskId, targetSubtask.id, direction < 0 ? "before" : "after");
+  };
+
+  const handleSubtaskDrop = (
+    taskId: string,
+    targetSubtaskId: string,
+    event: React.DragEvent<HTMLDivElement>
+  ) => {
+    if (!draggedSubtask || draggedSubtask.taskId !== taskId) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const placement = event.clientY > bounds.top + bounds.height / 2 ? "after" : "before";
+
+    moveSubtask(taskId, draggedSubtask.subtaskId, targetSubtaskId, placement);
+    setDraggedSubtask(null);
   };
 
   const filteredTasks = useMemo(() => {
@@ -697,7 +854,7 @@ export default function App() {
                       )}
                       <div className={cn(
                         "flex items-center gap-1 transition-opacity",
-                        editingTaskId === task.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        editingTaskId === task.id ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       )}>
                         {editingTaskId === task.id ? (
                           <>
@@ -776,17 +933,84 @@ export default function App() {
                     </div>
 
                     {/* Subtasks */}
-                    {task.subtasks.length > 0 && (
-                      <div className="mt-4 space-y-2 pl-2 border-l-2 border-muted">
+                    <div className="mt-4 space-y-2 pl-2 border-l-2 border-muted">
+                      {task.subtasks.length > 0 && (
                         <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-2">
                           <Split className="w-3 h-3" />
                           Subtasks
                         </div>
-                        {task.subtasks.map(st => (
-                          <div key={st.id} className="flex items-center gap-2 group/st">
+                      )}
+                      {task.subtasks.map((st, subtaskIndex) => {
+                        const isEditingSubtask =
+                          editingSubtask?.taskId === task.id && editingSubtask.subtaskId === st.id;
+
+                        return (
+                          <div
+                            key={st.id}
+                            onDragOver={(event) => {
+                              if (
+                                draggedSubtask &&
+                                draggedSubtask.taskId === task.id &&
+                                draggedSubtask.subtaskId !== st.id
+                              ) {
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
+                              }
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              handleSubtaskDrop(task.id, st.id, event);
+                            }}
+                            onDragEnd={() => setDraggedSubtask(null)}
+                            className={cn(
+                              "flex items-start gap-2 rounded-lg py-1 group/st",
+                              draggedSubtask?.taskId === task.id &&
+                                draggedSubtask.subtaskId === st.id &&
+                                "opacity-40",
+                              draggedSubtask?.taskId === task.id &&
+                                draggedSubtask.subtaskId !== st.id &&
+                                "ring-1 ring-primary/20"
+                            )}
+                          >
+                            <div className="flex items-center gap-0.5 text-muted-foreground">
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(event) => {
+                                  setDraggedSubtask({ taskId: task.id, subtaskId: st.id });
+                                  event.dataTransfer.effectAllowed = "move";
+                                  event.dataTransfer.setData("text/plain", st.id);
+                                }}
+                                className="cursor-grab rounded p-0.5 transition-colors hover:bg-muted active:cursor-grabbing"
+                                title="Drag to reorder subtask"
+                                aria-label="Drag to reorder subtask"
+                              >
+                                <GripVertical className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveSubtaskByStep(task.id, st.id, -1)}
+                                disabled={subtaskIndex === 0}
+                                className="rounded p-0.5 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
+                                title="Move subtask up"
+                                aria-label="Move subtask up"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveSubtaskByStep(task.id, st.id, 1)}
+                                disabled={subtaskIndex === task.subtasks.length - 1}
+                                className="rounded p-0.5 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
+                                title="Move subtask down"
+                                aria-label="Move subtask down"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                             <button 
                               onClick={() => toggleSubtask(task.id, st.id)}
-                              className="text-muted-foreground hover:text-primary transition-colors"
+                              className="mt-0.5 text-muted-foreground hover:text-primary transition-colors"
                             >
                               {st.completed ? (
                                 <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -794,16 +1018,146 @@ export default function App() {
                                 <Circle className="w-4 h-4" />
                               )}
                             </button>
-                            <span className={cn(
-                              "text-sm",
-                              st.completed && "line-through text-muted-foreground"
+                            <div className="flex-1 min-w-0">
+                              {isEditingSubtask ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    value={editingSubtask.title}
+                                    onChange={(event) =>
+                                      setEditingSubtask({
+                                        ...editingSubtask,
+                                        title: event.target.value,
+                                        error: null,
+                                      })
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") {
+                                        event.preventDefault();
+                                        saveEditedSubtask();
+                                      }
+
+                                      if (event.key === "Escape") {
+                                        cancelEditingSubtask();
+                                      }
+                                    }}
+                                    className={cn(
+                                      "w-full rounded-md border bg-background px-2 py-1 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20",
+                                      editingSubtask.error
+                                        ? "border-destructive"
+                                        : "border-border focus:border-primary"
+                                    )}
+                                  />
+                                  {editingSubtask.error && (
+                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-destructive">
+                                      {editingSubtask.error}
+                                    </p>
+                                  )}
+                                </>
+                              ) : (
+                                <span className={cn(
+                                  "text-sm leading-6 break-words",
+                                  st.completed && "line-through text-muted-foreground"
+                                )}>
+                                  {st.title}
+                                </span>
+                              )}
+                            </div>
+                            <div className={cn(
+                              "flex items-center gap-0.5 transition-opacity",
+                              isEditingSubtask ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover/st:opacity-100"
                             )}>
-                              {st.title}
-                            </span>
+                              {isEditingSubtask ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={saveEditedSubtask}
+                                    className="rounded p-1 text-primary transition-colors hover:bg-primary/10"
+                                    title="Save subtask"
+                                    aria-label="Save subtask"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditingSubtask}
+                                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted"
+                                    title="Cancel editing"
+                                    aria-label="Cancel editing"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditingSubtask(task.id, st)}
+                                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted"
+                                    title="Edit subtask"
+                                    aria-label="Edit subtask"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSubtask(task.id, st.id)}
+                                    className="rounded p-1 text-destructive transition-colors hover:bg-destructive/10"
+                                    title="Delete subtask"
+                                    aria-label="Delete subtask"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        ))}
+                        );
+                      })}
+                      <div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <input
+                            type="text"
+                            value={newSubtaskTitles[task.id] ?? ""}
+                            onChange={(event) => {
+                              setNewSubtaskTitles(prev => ({ ...prev, [task.id]: event.target.value }));
+                              if (newSubtaskErrors[task.id]) {
+                                setNewSubtaskErrors(prev => ({ ...prev, [task.id]: null }));
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                addSubtask(task.id);
+                              }
+                            }}
+                            placeholder="Add subtask..."
+                            className={cn(
+                              "min-w-0 flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20",
+                              newSubtaskErrors[task.id]
+                                ? "border-destructive"
+                                : "border-border focus:border-primary"
+                            )}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addSubtask(task.id)}
+                            disabled={!(newSubtaskTitles[task.id] ?? "").trim()}
+                            className="rounded-lg bg-muted p-1.5 text-muted-foreground transition-all hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                            title="Add subtask"
+                            aria-label="Add subtask"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {newSubtaskErrors[task.id] && (
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-destructive">
+                            {newSubtaskErrors[task.id]}
+                          </p>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-[10px] text-muted-foreground font-mono">
@@ -852,7 +1206,6 @@ export default function App() {
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs font-medium uppercase tracking-widest text-muted-foreground/60 mb-10">
               <a href="https://airat.top" className="hover:text-primary transition-colors" target="_blank" rel="author">Airat.Top</a>
               <a href="https://github.com/AiratTop/task.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer">GitHub</a>
-              <a href="https://status.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer">Status</a>
               <a href="https://privacy.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer privacy-policy">Privacy</a>
               <a href="https://terms.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer terms-of-service">Terms</a>
             </div>
