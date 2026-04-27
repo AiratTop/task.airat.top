@@ -86,6 +86,42 @@ const updateTaskRecord = (task: Task, updates: Partial<Task>, updatedAt = Date.n
 
 const shouldSkipAiAnalysis = (title: string) => title.trim().toLowerCase() === "test";
 
+const highlightSearchMatch = (text: string, query: string) => {
+  const search = query.trim().toLowerCase();
+
+  if (!search) return text;
+
+  const lowerText = text.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = lowerText.indexOf(search);
+
+  while (matchIndex !== -1) {
+    if (matchIndex > cursor) {
+      parts.push(text.slice(cursor, matchIndex));
+    }
+
+    const matchEnd = matchIndex + search.length;
+    parts.push(
+      <mark
+        key={`${matchIndex}-${matchEnd}`}
+        className="rounded-sm bg-primary/20 px-0.5 text-foreground"
+      >
+        {text.slice(matchIndex, matchEnd)}
+      </mark>
+    );
+
+    cursor = matchEnd;
+    matchIndex = lowerText.indexOf(search, cursor);
+  }
+
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
+
+  return parts;
+};
+
 const getTodayDateKey = () => format(new Date(), "yyyy-MM-dd");
 
 const getDateKeyInDays = (daysFromToday: number) => {
@@ -1412,7 +1448,7 @@ export default function App() {
                           )}
                           title={sortMode === "manual" ? "Drag to reorder" : undefined}
                         >
-                          {task.title}
+                          {highlightSearchMatch(task.title, searchQuery)}
                         </h3>
                       )}
                       <div className={cn(
@@ -1556,7 +1592,7 @@ export default function App() {
                           key={tag} 
                           className="inline-flex items-center gap-1 px-2 py-0.5 bg-secondary text-secondary-foreground text-xs rounded-md font-medium border border-border/50"
                         >
-                          #{tag}
+                          #{highlightSearchMatch(tag, searchQuery)}
                           <button
                             type="button"
                             onClick={() => deleteTaskTag(task.id, tag)}
@@ -1704,7 +1740,7 @@ export default function App() {
                                   )}
                                   title="Drag to reorder subtask"
                                 >
-                                  {st.title}
+                                  {highlightSearchMatch(st.title, searchQuery)}
                                 </span>
                               )}
                             </div>
