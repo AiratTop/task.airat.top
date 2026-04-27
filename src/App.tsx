@@ -175,6 +175,8 @@ export default function App() {
   const [editingTaskError, setEditingTaskError] = useState<string | null>(null);
   const [newSubtaskTitles, setNewSubtaskTitles] = useState<Record<string, string>>({});
   const [newSubtaskErrors, setNewSubtaskErrors] = useState<Record<string, string | null>>({});
+  const [newTagInputs, setNewTagInputs] = useState<Record<string, string>>({});
+  const [newTagErrors, setNewTagErrors] = useState<Record<string, string | null>>({});
   const [editingSubtask, setEditingSubtask] = useState<{
     taskId: string;
     subtaskId: string;
@@ -466,6 +468,43 @@ export default function App() {
   const updateTaskDueDate = (id: string, dueDate: string) => {
     setTasks(prev => prev.map(t =>
       t.id === id ? { ...t, dueDate: dueDate || undefined } : t
+    ));
+  };
+
+  const normalizeTag = (tag: string) =>
+    tag.trim().replace(/^#+/, "").replace(/\s+/g, "-").toLowerCase();
+
+  const addTaskTag = (taskId: string) => {
+    const tag = normalizeTag(newTagInputs[taskId] ?? "");
+
+    if (!tag) {
+      setNewTagErrors(prev => ({ ...prev, [taskId]: "Tag is required" }));
+      return;
+    }
+
+    if (tag.length > 30) {
+      setNewTagErrors(prev => ({ ...prev, [taskId]: "Tag is too long (max 30 chars)" }));
+      return;
+    }
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    if (task.tags.some(existingTag => existingTag.toLowerCase() === tag)) {
+      setNewTagErrors(prev => ({ ...prev, [taskId]: "Tag already exists" }));
+      return;
+    }
+
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, tags: [...t.tags, tag] } : t
+    ));
+    setNewTagInputs(prev => ({ ...prev, [taskId]: "" }));
+    setNewTagErrors(prev => ({ ...prev, [taskId]: null }));
+  };
+
+  const deleteTaskTag = (taskId: string, tag: string) => {
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, tags: t.tags.filter(existingTag => existingTag !== tag) } : t
     ));
   };
 
@@ -1313,11 +1352,58 @@ export default function App() {
                       {task.tags.map(tag => (
                         <span 
                           key={tag} 
-                          className="px-2 py-0.5 bg-secondary text-secondary-foreground text-xs rounded-md font-medium border border-border/50"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-secondary text-secondary-foreground text-xs rounded-md font-medium border border-border/50"
                         >
                           #{tag}
+                          <button
+                            type="button"
+                            onClick={() => deleteTaskTag(task.id, tag)}
+                            className="rounded text-muted-foreground transition-colors hover:text-destructive"
+                            title={`Remove ${tag} tag`}
+                            aria-label={`Remove ${tag} tag`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </span>
                       ))}
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={newTagInputs[task.id] ?? ""}
+                          onChange={(event) => {
+                            setNewTagInputs(prev => ({ ...prev, [task.id]: event.target.value }));
+                            if (newTagErrors[task.id]) {
+                              setNewTagErrors(prev => ({ ...prev, [task.id]: null }));
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              addTaskTag(task.id);
+                            }
+                          }}
+                          placeholder="Add tag..."
+                          className={cn(
+                            "h-7 w-28 rounded-md border bg-background px-2 text-xs outline-none transition-all focus:ring-2 focus:ring-primary/20",
+                            newTagErrors[task.id] ? "border-destructive" : "border-border focus:border-primary"
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addTaskTag(task.id)}
+                          disabled={!(newTagInputs[task.id] ?? "").trim()}
+                          className="rounded-md bg-muted p-1 text-muted-foreground transition-all hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Add tag"
+                          aria-label="Add tag"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {newTagErrors[task.id] && (
+                        <p className="basis-full text-[10px] font-bold uppercase tracking-wider text-destructive">
+                          {newTagErrors[task.id]}
+                        </p>
+                      )}
                     </div>
 
                     {/* Subtasks */}
