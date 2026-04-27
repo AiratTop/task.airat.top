@@ -47,6 +47,24 @@ const TASK_PRIORITIES: { value: TaskPriority; label: string; className: string }
   { value: "high", label: "High", className: "text-rose-600 dark:text-rose-400" },
 ];
 
+type PriorityFilter = "all" | TaskPriority;
+type DueDateFilter = "all" | "today" | "upcoming" | "overdue" | "no-date";
+
+const PRIORITY_FILTERS: { value: PriorityFilter; label: string }[] = [
+  { value: "all", label: "All priorities" },
+  { value: "high", label: "High" },
+  { value: "normal", label: "Normal" },
+  { value: "low", label: "Low" },
+];
+
+const DUE_DATE_FILTERS: { value: DueDateFilter; label: string }[] = [
+  { value: "all", label: "All dates" },
+  { value: "today", label: "Today" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "overdue", label: "Overdue" },
+  { value: "no-date", label: "No date" },
+];
+
 const getTaskPriority = (task: Task): TaskPriority => task.priority ?? "normal";
 
 const shouldSkipAiAnalysis = (title: string) => title.trim().toLowerCase() === "test";
@@ -82,6 +100,18 @@ const getDueDateStatus = (task: Task) => {
     label: "Due",
     className: "border-border bg-muted/50 text-muted-foreground",
   };
+};
+
+const matchesDueDateFilter = (task: Task, dueDateFilter: DueDateFilter) => {
+  if (dueDateFilter === "all") return true;
+  if (dueDateFilter === "no-date") return !task.dueDate;
+  if (!task.dueDate) return false;
+
+  const today = getTodayDateKey();
+
+  if (dueDateFilter === "today") return task.dueDate === today;
+  if (dueDateFilter === "overdue") return !task.completed && task.dueDate < today;
+  return task.dueDate > today;
 };
 
 type UndoAction = {
@@ -133,6 +163,8 @@ export default function App() {
   );
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [dueDateFilter, setDueDateFilter] = useState<DueDateFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -814,15 +846,18 @@ export default function App() {
         filter === "all" ? true :
         filter === "active" ? !t.completed :
         t.completed;
+      const matchesPriority =
+        priorityFilter === "all" || getTaskPriority(t) === priorityFilter;
+      const matchesDueDate = matchesDueDateFilter(t, dueDateFilter);
       
       const matchesSearch = !query ||
         t.title.toLowerCase().includes(query) ||
         t.tags.some(tag => tag.toLowerCase().includes(query)) ||
         t.subtasks.some(subtask => subtask.title.toLowerCase().includes(query));
       
-      return matchesFilter && matchesSearch;
+      return matchesFilter && matchesPriority && matchesDueDate && matchesSearch;
     });
-  }, [tasks, filter, searchQuery]);
+  }, [tasks, filter, priorityFilter, dueDateFilter, searchQuery]);
 
   const stats = useMemo(() => ({
     total: tasks.length,
@@ -950,25 +985,63 @@ export default function App() {
         </form>
 
         {/* Filters */}
-        <div className="flex items-center justify-between mb-6 gap-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1">
-            {(["all", "active", "completed"] as FilterType[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap",
-                  filter === f 
-                    ? "bg-primary text-primary-foreground shadow-sm" 
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
-              >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-                <span className="ml-2 opacity-60">
-                  {f === "all" ? stats.total : f === "active" ? stats.active : stats.completed}
-                </span>
-              </button>
-            ))}
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {(["all", "active", "completed"] as FilterType[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+                    filter === f 
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                  <span className="ml-2 opacity-60">
+                    {f === "all" ? stats.total : f === "active" ? stats.active : stats.completed}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
+              <Clock className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
+              {DUE_DATE_FILTERS.map((dueFilter) => (
+                <button
+                  key={dueFilter.value}
+                  type="button"
+                  onClick={() => setDueDateFilter(dueFilter.value)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                    dueDateFilter === dueFilter.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                  )}
+                >
+                  {dueFilter.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
+              <Flag className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
+              {PRIORITY_FILTERS.map((priority) => (
+                <button
+                  key={priority.value}
+                  type="button"
+                  onClick={() => setPriorityFilter(priority.value)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                    priorityFilter === priority.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                  )}
+                >
+                  {priority.label}
+                </button>
+              ))}
+            </div>
           </div>
           {stats.completed > 0 && (
             <button 

@@ -19,6 +19,7 @@ Public local-first task manager with manual planning controls and optional AI-as
 - First-time users get a single English demo task if the task storage key does not exist yet.
 - Users can export all tasks as JSON from the app header.
 - Tasks support manual ordering, inline editing, priorities (`low`, `normal`, `high`), and manual due dates.
+- Filters cover task status, due date buckets, and priority.
 - Subtasks support manual add/edit/delete/complete and manual ordering.
 - Destructive task/subtask actions should preserve the existing 3-second undo pattern where practical.
 - Search should cover task titles, generated tags, and subtask titles.

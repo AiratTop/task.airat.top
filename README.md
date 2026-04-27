@@ -17,7 +17,7 @@ Smart, local-first task manager with manual task planning and optional AI-assist
 - Inline task editing.
 - Task priorities: low, normal, high.
 - Manual due dates with today/overdue status.
-- Filters: all, active, completed.
+- Filters by task status, due date, and priority.
 - Search by task title, generated tags, and subtask title.
 - Manual subtasks: add, edit, complete, delete, and reorder.
 - AI auto-tagging for new and edited tasks (Gemini).
