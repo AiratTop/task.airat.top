@@ -12,6 +12,7 @@ export interface Task {
   description?: string;
   completed: boolean;
   createdAt: number;
+  updatedAt?: number;
   completedAt?: number;
   priority?: TaskPriority;
   dueDate?: string;

@@ -67,6 +67,12 @@ const DUE_DATE_FILTERS: { value: DueDateFilter; label: string }[] = [
 
 const getTaskPriority = (task: Task): TaskPriority => task.priority ?? "normal";
 
+const updateTaskRecord = (task: Task, updates: Partial<Task>, updatedAt = Date.now()): Task => ({
+  ...task,
+  ...updates,
+  updatedAt,
+});
+
 const shouldSkipAiAnalysis = (title: string) => title.trim().toLowerCase() === "test";
 
 const getTodayDateKey = () => format(new Date(), "yyyy-MM-dd");
@@ -120,40 +126,45 @@ type UndoAction = {
   restore: () => void;
 };
 
-const createDemoTask = (): Task => ({
-  id: createId(),
-  title: "Explore Task.Airat.Top features",
-  completed: false,
-  createdAt: Date.now(),
-  priority: "high",
-  dueDate: getDateKeyInDays(1),
-  tags: ["demo", "workflow", "local-first"],
-  subtasks: [
-    {
-      id: createId(),
-      title: "Edit this task title inline",
-      completed: false,
-    },
-    {
-      id: createId(),
-      title: "Drag tasks and subtasks to reorder them",
-      completed: false,
-    },
-    {
-      id: createId(),
-      title: "Set a manual due date and priority",
-      completed: false,
-    },
-    {
-      id: createId(),
-      title: "Delete something and restore it with Undo within 3 seconds",
-      completed: false,
-    },
-  ],
-  isDecomposed: true,
-  isGeneratingTags: false,
-  isDecomposing: false,
-});
+const createDemoTask = (): Task => {
+  const now = Date.now();
+
+  return {
+    id: createId(),
+    title: "Explore Task.Airat.Top features",
+    completed: false,
+    createdAt: now,
+    updatedAt: now,
+    priority: "high",
+    dueDate: getDateKeyInDays(1),
+    tags: ["demo", "workflow", "local-first"],
+    subtasks: [
+      {
+        id: createId(),
+        title: "Edit this task title inline",
+        completed: false,
+      },
+      {
+        id: createId(),
+        title: "Drag tasks and subtasks to reorder them",
+        completed: false,
+      },
+      {
+        id: createId(),
+        title: "Set a manual due date and priority",
+        completed: false,
+      },
+      {
+        id: createId(),
+        title: "Delete something and restore it with Undo within 3 seconds",
+        completed: false,
+      },
+    ],
+    isDecomposed: true,
+    isGeneratingTags: false,
+    isDecomposing: false,
+  };
+};
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -413,11 +424,13 @@ export default function App() {
 
     setError(null);
 
+    const now = Date.now();
     const newTask: Task = {
       id: createId(),
       title: title,
       completed: false,
-      createdAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
       priority: "normal",
       dueDate: undefined,
       tags: [],
@@ -436,7 +449,7 @@ export default function App() {
     try {
       const { tags } = await analyzeTask(newTask.title);
       setTasks(prev => prev.map(t => 
-        t.id === newTask.id ? { ...t, tags, isGeneratingTags: false } : t
+        t.id === newTask.id ? updateTaskRecord(t, { tags, isGeneratingTags: false }) : t
       ));
     } catch (error) {
       setTasks(prev => prev.map(t => 
@@ -449,11 +462,10 @@ export default function App() {
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         const completed = !t.completed;
-        return { 
-          ...t, 
+        return updateTaskRecord(t, { 
           completed, 
           completedAt: completed ? Date.now() : undefined 
-        };
+        });
       }
       return t;
     }));
@@ -461,13 +473,13 @@ export default function App() {
 
   const updateTaskPriority = (id: string, priority: TaskPriority) => {
     setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, priority } : t
+      t.id === id ? updateTaskRecord(t, { priority }) : t
     ));
   };
 
   const updateTaskDueDate = (id: string, dueDate: string) => {
     setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, dueDate: dueDate || undefined } : t
+      t.id === id ? updateTaskRecord(t, { dueDate: dueDate || undefined }) : t
     ));
   };
 
@@ -496,7 +508,7 @@ export default function App() {
     }
 
     setTasks(prev => prev.map(t =>
-      t.id === taskId ? { ...t, tags: [...t.tags, tag] } : t
+      t.id === taskId ? updateTaskRecord(t, { tags: [...t.tags, tag] }) : t
     ));
     setNewTagInputs(prev => ({ ...prev, [taskId]: "" }));
     setNewTagErrors(prev => ({ ...prev, [taskId]: null }));
@@ -504,7 +516,9 @@ export default function App() {
 
   const deleteTaskTag = (taskId: string, tag: string) => {
     setTasks(prev => prev.map(t =>
-      t.id === taskId ? { ...t, tags: t.tags.filter(existingTag => existingTag !== tag) } : t
+      t.id === taskId
+        ? updateTaskRecord(t, { tags: t.tags.filter(existingTag => existingTag !== tag) })
+        : t
     ));
   };
 
@@ -580,7 +594,7 @@ export default function App() {
     setEditingTaskError(null);
     setTasks(prev => prev.map(t =>
       t.id === taskId
-        ? { ...t, title, tags: [], isGeneratingTags: !shouldSkipAiAnalysis(title) }
+        ? updateTaskRecord(t, { title, tags: [], isGeneratingTags: !shouldSkipAiAnalysis(title) })
         : t
     ));
 
@@ -589,7 +603,7 @@ export default function App() {
     try {
       const { tags } = await analyzeTask(title);
       setTasks(prev => prev.map(t =>
-        t.id === taskId ? { ...t, tags, isGeneratingTags: false } : t
+        t.id === taskId ? updateTaskRecord(t, { tags, isGeneratingTags: false }) : t
       ));
     } catch (error) {
       setTasks(prev => prev.map(t =>
@@ -683,12 +697,11 @@ export default function App() {
       }));
 
       setTasks(prev => prev.map(t => 
-        t.id === id ? { 
-          ...t, 
+        t.id === id ? updateTaskRecord(t, { 
           subtasks: newSubtasks, 
           isDecomposed: true, 
           isDecomposing: false 
-        } : t
+        }) : t
       ));
     } catch (error) {
       setTasks(prev => prev.map(t => 
@@ -704,7 +717,7 @@ export default function App() {
           st.id === subtaskId ? { ...st, completed: !st.completed } : st
         );
         // Auto-complete parent if all subtasks are done? Maybe not, let user decide.
-        return { ...t, subtasks: updatedSubtasks };
+        return updateTaskRecord(t, { subtasks: updatedSubtasks });
       }
       return t;
     }));
@@ -733,7 +746,7 @@ export default function App() {
 
     setTasks(prev => prev.map(t =>
       t.id === taskId
-        ? { ...t, subtasks: [...t.subtasks, newSubtask], isDecomposed: true }
+        ? updateTaskRecord(t, { subtasks: [...t.subtasks, newSubtask], isDecomposed: true })
         : t
     ));
     setNewSubtaskTitles(prev => ({ ...prev, [taskId]: "" }));
@@ -757,11 +770,10 @@ export default function App() {
           const subtasks = [...t.subtasks];
           subtasks.splice(Math.min(subtaskIndex, subtasks.length), 0, deletedSubtask);
 
-          return {
-            ...t,
+          return updateTaskRecord(t, {
             subtasks,
             isDecomposed: true,
-          };
+          });
         }));
       },
     });
@@ -770,11 +782,10 @@ export default function App() {
       if (t.id !== taskId) return t;
 
       const subtasks = t.subtasks.filter(st => st.id !== subtaskId);
-      return {
-        ...t,
+      return updateTaskRecord(t, {
         subtasks,
         isDecomposed: subtasks.length > 0,
-      };
+      });
     }));
 
     if (editingSubtask?.taskId === taskId && editingSubtask.subtaskId === subtaskId) {
@@ -809,12 +820,11 @@ export default function App() {
     setTasks(prev => prev.map(t => {
       if (t.id !== editingSubtask.taskId) return t;
 
-      return {
-        ...t,
+      return updateTaskRecord(t, {
         subtasks: t.subtasks.map(st =>
           st.id === editingSubtask.subtaskId ? { ...st, title } : st
         ),
-      };
+      });
     }));
     setEditingSubtask(null);
   };
@@ -847,7 +857,7 @@ export default function App() {
         movedSubtask
       );
 
-      return { ...t, subtasks };
+      return updateTaskRecord(t, { subtasks });
     }));
   };
 
@@ -1637,6 +1647,9 @@ export default function App() {
                 <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-[10px] text-muted-foreground font-mono">
                   <div className="flex items-center gap-3">
                     <span>Created {format(task.createdAt, "MMM d, HH:mm")}</span>
+                    {task.updatedAt && task.updatedAt !== task.createdAt && (
+                      <span>Updated {format(task.updatedAt, "MMM d, HH:mm")}</span>
+                    )}
                     {task.completed && task.completedAt && (
                       <span className="flex items-center gap-1 text-primary">
                         <CheckCircle2 className="w-2.5 h-2.5" />
