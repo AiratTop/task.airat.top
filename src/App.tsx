@@ -17,6 +17,7 @@ import {
   Check,
   Flag,
   RotateCcw,
+  Download,
   ChevronDown, 
   ChevronUp,
   Search,
@@ -111,6 +112,11 @@ const createDemoTask = (): Task => ({
     {
       id: createId(),
       title: "Set a manual due date and priority",
+      completed: false,
+    },
+    {
+      id: createId(),
+      title: "Delete something and restore it with Undo within 3 seconds",
       completed: false,
     },
   ],
@@ -262,6 +268,26 @@ export default function App() {
 
     undoAction.restore();
     setUndoAction(null);
+  };
+
+  const exportTasks = () => {
+    const payload = {
+      source: "task.airat.top",
+      exportedAt: new Date().toISOString(),
+      tasks,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `task-airat-top-tasks-${getTodayDateKey()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleVoiceInput = () => {
@@ -821,6 +847,15 @@ export default function App() {
           </a>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={exportTasks}
+              className="p-2 rounded-full hover:bg-muted transition-colors"
+              title="Export Tasks"
+              aria-label="Export tasks as JSON"
+            >
+              <Download className="w-5 h-5" />
+            </button>
             <button 
               onClick={() =>
                 setSettings((s) => ({

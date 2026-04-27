@@ -11,6 +11,7 @@ Smart, local-first task manager with manual task planning and optional AI-assist
 
 - Local task storage in the browser (`localStorage`).
 - First-run demo task with tags, subtasks, priority, and due date.
+- JSON export for all tasks.
 - Fast add/complete/delete flow with progress stats and 3-second undo for deletes.
 - Manual task ordering with drag-and-drop and up/down controls.
 - Inline task editing.
