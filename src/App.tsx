@@ -19,7 +19,8 @@ import {
   Filter,
   MoreVertical,
   X,
-  Loader2
+  Loader2,
+  GripVertical
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -42,6 +43,7 @@ export default function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Load data
@@ -235,6 +237,74 @@ export default function App() {
 
   const deleteTask = (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const moveTaskBefore = (taskId: string, targetTaskId: string) => {
+    if (taskId === targetTaskId) return;
+
+    setTasks(prev => {
+      const fromIndex = prev.findIndex(t => t.id === taskId);
+      const targetIndex = prev.findIndex(t => t.id === targetTaskId);
+
+      if (fromIndex === -1 || targetIndex === -1) return prev;
+
+      const next = [...prev];
+      const [movedTask] = next.splice(fromIndex, 1);
+      const adjustedTargetIndex = next.findIndex(t => t.id === targetTaskId);
+
+      if (adjustedTargetIndex === -1) return prev;
+
+      next.splice(adjustedTargetIndex, 0, movedTask);
+      return next;
+    });
+  };
+
+  const moveTaskAfter = (taskId: string, targetTaskId: string) => {
+    if (taskId === targetTaskId) return;
+
+    setTasks(prev => {
+      const fromIndex = prev.findIndex(t => t.id === taskId);
+      const targetIndex = prev.findIndex(t => t.id === targetTaskId);
+
+      if (fromIndex === -1 || targetIndex === -1) return prev;
+
+      const next = [...prev];
+      const [movedTask] = next.splice(fromIndex, 1);
+      const adjustedTargetIndex = next.findIndex(t => t.id === targetTaskId);
+
+      if (adjustedTargetIndex === -1) return prev;
+
+      next.splice(adjustedTargetIndex + 1, 0, movedTask);
+      return next;
+    });
+  };
+
+  const moveTaskByVisibleStep = (taskId: string, direction: -1 | 1) => {
+    const visibleIndex = filteredTasks.findIndex(t => t.id === taskId);
+    const targetTask = filteredTasks[visibleIndex + direction];
+
+    if (!targetTask) return;
+
+    if (direction < 0) {
+      moveTaskBefore(taskId, targetTask.id);
+      return;
+    }
+
+    moveTaskAfter(taskId, targetTask.id);
+  };
+
+  const handleTaskDrop = (targetTaskId: string, event: React.DragEvent<HTMLDivElement>) => {
+    if (draggedTaskId) {
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const shouldMoveAfter = event.clientY > bounds.top + bounds.height / 2;
+
+      if (shouldMoveAfter) {
+        moveTaskAfter(draggedTaskId, targetTaskId);
+      } else {
+        moveTaskBefore(draggedTaskId, targetTaskId);
+      }
+    }
+    setDraggedTaskId(null);
   };
 
   const handleDecompose = async (id: string) => {
@@ -443,19 +513,68 @@ export default function App() {
         {/* Task List */}
         <div className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {filteredTasks.map((task) => (
+            {filteredTasks.map((task, index) => (
               <motion.div
                 key={task.id}
                 layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
+                onDragOver={(event) => {
+                  if (draggedTaskId && draggedTaskId !== task.id) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleTaskDrop(task.id, event);
+                }}
+                onDragEnd={() => setDraggedTaskId(null)}
                 className={cn(
                   "task-card group relative",
+                  draggedTaskId === task.id && "opacity-40",
+                  draggedTaskId && draggedTaskId !== task.id && "ring-1 ring-primary/20",
                   task.completed && "opacity-60"
                 )}
               >
                 <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex flex-col items-center gap-1 text-muted-foreground">
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(event) => {
+                        setDraggedTaskId(task.id);
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", task.id);
+                      }}
+                      className="cursor-grab rounded-md p-1 transition-colors hover:bg-muted active:cursor-grabbing"
+                      title="Drag to reorder"
+                      aria-label="Drag to reorder"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveTaskByVisibleStep(task.id, -1)}
+                      disabled={index === 0}
+                      className="rounded-md p-1 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
+                      title="Move up"
+                      aria-label="Move task up"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveTaskByVisibleStep(task.id, 1)}
+                      disabled={index === filteredTasks.length - 1}
+                      className="rounded-md p-1 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
+                      title="Move down"
+                      aria-label="Move task down"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button 
                     onClick={() => toggleTask(task.id)}
                     className="mt-1 text-primary transition-transform hover:scale-110 active:scale-90"
