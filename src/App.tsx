@@ -48,6 +48,8 @@ const TASK_PRIORITIES: { value: TaskPriority; label: string; className: string }
 
 const getTaskPriority = (task: Task): TaskPriority => task.priority ?? "normal";
 
+const shouldSkipAiAnalysis = (title: string) => title.trim().toLowerCase() === "test";
+
 type UndoAction = {
   id: string;
   message: string;
@@ -267,12 +269,14 @@ export default function App() {
       tags: [],
       subtasks: [],
       isDecomposed: false,
-      isGeneratingTags: true,
+      isGeneratingTags: !shouldSkipAiAnalysis(title),
       isDecomposing: false,
     };
 
     setTasks(prev => [newTask, ...prev]);
     setNewTaskTitle("");
+
+    if (shouldSkipAiAnalysis(title)) return;
 
     // AI Tagging
     try {
@@ -378,8 +382,12 @@ export default function App() {
     setEditingTaskTitle("");
     setEditingTaskError(null);
     setTasks(prev => prev.map(t =>
-      t.id === taskId ? { ...t, title, tags: [], isGeneratingTags: true } : t
+      t.id === taskId
+        ? { ...t, title, tags: [], isGeneratingTags: !shouldSkipAiAnalysis(title) }
+        : t
     ));
+
+    if (shouldSkipAiAnalysis(title)) return;
 
     try {
       const { tags } = await analyzeTask(title);
