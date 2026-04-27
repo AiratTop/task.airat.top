@@ -13,6 +13,8 @@ import {
   ExternalLink, 
   Sparkles, 
   Split, 
+  Pencil,
+  Check,
   ChevronDown, 
   ChevronUp,
   Search,
@@ -44,6 +46,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState("");
+  const [editingTaskError, setEditingTaskError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Load data
@@ -237,6 +242,69 @@ export default function App() {
 
   const deleteTask = (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
+    if (editingTaskId === id) {
+      setEditingTaskId(null);
+      setEditingTaskTitle("");
+      setEditingTaskError(null);
+    }
+  };
+
+  const startEditingTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskTitle(task.title);
+    setEditingTaskError(null);
+  };
+
+  const cancelEditingTask = () => {
+    setEditingTaskId(null);
+    setEditingTaskTitle("");
+    setEditingTaskError(null);
+  };
+
+  const saveEditedTask = async () => {
+    if (!editingTaskId) return;
+
+    const title = editingTaskTitle.trim();
+    const currentTask = tasks.find(t => t.id === editingTaskId);
+
+    if (!currentTask) {
+      cancelEditingTask();
+      return;
+    }
+
+    if (title.length < 3) {
+      setEditingTaskError("Task is too short (min 3 chars)");
+      return;
+    }
+
+    if (title.length > 120) {
+      setEditingTaskError("Task is too long (max 120 chars)");
+      return;
+    }
+
+    if (title === currentTask.title) {
+      cancelEditingTask();
+      return;
+    }
+
+    const taskId = editingTaskId;
+    setEditingTaskId(null);
+    setEditingTaskTitle("");
+    setEditingTaskError(null);
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, title, tags: [], isGeneratingTags: true } : t
+    ));
+
+    try {
+      const { tags } = await analyzeTask(title);
+      setTasks(prev => prev.map(t =>
+        t.id === taskId ? { ...t, tags, isGeneratingTags: false } : t
+      ));
+    } catch (error) {
+      setTasks(prev => prev.map(t =>
+        t.id === taskId ? { ...t, isGeneratingTags: false } : t
+      ));
+    }
   };
 
   const moveTaskBefore = (taskId: string, targetTaskId: string) => {
@@ -588,34 +656,104 @@ export default function App() {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className={cn(
-                        "text-lg font-medium leading-tight break-words",
-                        task.completed && "line-through text-muted-foreground"
-                      )}>
-                        {task.title}
-                      </h3>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {!task.isDecomposed && !task.completed && (
-                          <button 
-                            onClick={() => handleDecompose(task.id)}
-                            disabled={task.isDecomposing}
-                            className="p-1.5 rounded-lg hover:bg-muted text-primary"
-                            title="AI Decomposition"
-                          >
-                            {task.isDecomposing ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Split className="w-4 h-4" />
+                      {editingTaskId === task.id ? (
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editingTaskTitle}
+                            onChange={(event) => {
+                              setEditingTaskTitle(event.target.value);
+                              if (editingTaskError) setEditingTaskError(null);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                void saveEditedTask();
+                              }
+
+                              if (event.key === "Escape") {
+                                cancelEditingTask();
+                              }
+                            }}
+                            className={cn(
+                              "w-full rounded-lg border bg-background px-3 py-1.5 text-lg font-medium leading-tight outline-none transition-all focus:ring-2 focus:ring-primary/20",
+                              editingTaskError ? "border-destructive" : "border-border focus:border-primary"
                             )}
-                          </button>
+                          />
+                          {editingTaskError && (
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-destructive">
+                              {editingTaskError}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <h3 className={cn(
+                          "text-lg font-medium leading-tight break-words",
+                          task.completed && "line-through text-muted-foreground"
+                        )}>
+                          {task.title}
+                        </h3>
+                      )}
+                      <div className={cn(
+                        "flex items-center gap-1 transition-opacity",
+                        editingTaskId === task.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                      )}>
+                        {editingTaskId === task.id ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => void saveEditedTask()}
+                              className="p-1.5 rounded-lg hover:bg-primary/10 text-primary"
+                              title="Save Task"
+                              aria-label="Save task"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditingTask}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+                              title="Cancel Editing"
+                              aria-label="Cancel editing"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {!task.isDecomposed && !task.completed && (
+                              <button 
+                                onClick={() => handleDecompose(task.id)}
+                                disabled={task.isDecomposing}
+                                className="p-1.5 rounded-lg hover:bg-muted text-primary"
+                                title="AI Decomposition"
+                              >
+                                {task.isDecomposing ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Split className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => startEditingTask(task)}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+                              title="Edit Task"
+                              aria-label="Edit task"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => deleteTask(task.id)}
+                              className="p-1.5 rounded-lg hover:bg-destructive/10 text-destructive"
+                              title="Delete Task"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
-                        <button 
-                          onClick={() => deleteTask(task.id)}
-                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-destructive"
-                          title="Delete Task"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
 
