@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
-import { cn } from "./lib/utils";
+import { cn, normalizeTag, normalizeTags } from "./lib/utils";
 import { Task, SubTask, FilterType, AppSettings, TaskPriority } from "./types";
 import { analyzeTask, decomposeTask } from "./services/gemini";
 
@@ -249,7 +249,11 @@ export default function App() {
     const savedSettings = localStorage.getItem(SETTINGS_KEY);
     
     if (savedTasks) {
-      setTasks(JSON.parse(savedTasks));
+      const parsedTasks = JSON.parse(savedTasks) as Task[];
+      setTasks(parsedTasks.map(task => ({
+        ...task,
+        tags: normalizeTags(task.tags ?? []),
+      })));
     } else {
       setTasks([createDemoTask()]);
     }
@@ -507,7 +511,7 @@ export default function App() {
     try {
       const { tags } = await analyzeTask(newTask.title);
       setTasks(prev => prev.map(t => 
-        t.id === newTask.id ? updateTaskRecord(t, { tags, isGeneratingTags: false }) : t
+        t.id === newTask.id ? updateTaskRecord(t, { tags: normalizeTags(tags), isGeneratingTags: false }) : t
       ));
     } catch (error) {
       setTasks(prev => prev.map(t => 
@@ -544,9 +548,6 @@ export default function App() {
       t.id === id ? updateTaskRecord(t, { dueDate: dueDate || undefined }) : t
     ));
   };
-
-  const normalizeTag = (tag: string) =>
-    tag.trim().replace(/^#+/, "").replace(/\s+/g, "-").toLowerCase();
 
   const addTaskTag = (taskId: string) => {
     const tag = normalizeTag(newTagInputs[taskId] ?? "");
@@ -665,7 +666,7 @@ export default function App() {
     try {
       const { tags } = await analyzeTask(title);
       setTasks(prev => prev.map(t =>
-        t.id === taskId ? updateTaskRecord(t, { tags, isGeneratingTags: false }) : t
+        t.id === taskId ? updateTaskRecord(t, { tags: normalizeTags(tags), isGeneratingTags: false }) : t
       ));
     } catch (error) {
       setTasks(prev => prev.map(t =>
@@ -982,8 +983,18 @@ export default function App() {
     active: tasks.filter(t => !t.completed).length,
   }), [tasks]);
 
+  const tagSuggestions = useMemo(
+    () => Array.from(new Set(tasks.flatMap(task => normalizeTags(task.tags ?? [])))).sort(),
+    [tasks]
+  );
+
   return (
     <div className="min-h-screen flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">
+      <datalist id="tag-suggestions">
+        {tagSuggestions.map(tag => (
+          <option key={tag} value={tag} />
+        ))}
+      </datalist>
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -1513,6 +1524,7 @@ export default function App() {
                       <div className="flex items-center gap-1">
                         <input
                           type="text"
+                          list="tag-suggestions"
                           value={newTagInputs[task.id] ?? ""}
                           onChange={(event) => {
                             setNewTagInputs(prev => ({ ...prev, [task.id]: event.target.value }));

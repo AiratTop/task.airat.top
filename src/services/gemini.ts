@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { normalizeTags } from "../lib/utils";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
@@ -7,7 +8,7 @@ export async function analyzeTask(taskTitle: string, taskDescription: string = "
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Analyze this task: "${taskTitle}". ${taskDescription ? `Description: ${taskDescription}` : ""}. 
-      Generate 1-3 short, relevant tags for this task.
+      Generate 1-3 short, relevant tags for this task. Tags must be lowercase kebab-case with no spaces.
       Return only a JSON object with "tags" (array of strings).`,
       config: {
         responseMimeType: "application/json",
@@ -27,7 +28,7 @@ export async function analyzeTask(taskTitle: string, taskDescription: string = "
     const result = JSON.parse(response.text || "{}");
     
     return {
-      tags: Array.isArray(result.tags) ? result.tags.map((t: string) => t.toLowerCase()) : [],
+      tags: Array.isArray(result.tags) ? normalizeTags(result.tags) : [],
     };
   } catch (error) {
     console.error("Error analyzing task:", error);
