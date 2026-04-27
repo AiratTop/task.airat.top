@@ -1611,12 +1611,6 @@ export default function App() {
 
                     {/* Subtasks */}
                     <div className="mt-4 space-y-2 pl-2 border-l-2 border-muted">
-                      {task.subtasks.length > 0 && (
-                        <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-2">
-                          <Split className="w-3 h-3" />
-                          Subtasks
-                        </div>
-                      )}
                       {task.subtasks.map((st) => {
                         const isEditingSubtask =
                           editingSubtask?.taskId === task.id && editingSubtask.subtaskId === st.id;
