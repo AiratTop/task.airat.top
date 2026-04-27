@@ -2,7 +2,7 @@
 
 [![task.airat.top](https://repository-images.githubusercontent.com/1192079686/dd1f0633-9a18-46a5-aa6c-65964e3d57fa)](https://task.airat.top/)
 
-Smart, local-first task manager with AI-assisted tagging and task decomposition.
+Smart, local-first task manager with manual task planning and optional AI-assisted tagging/decomposition.
 
 - Live site: https://task.airat.top
 - Status page: https://status.airat.top
@@ -10,11 +10,17 @@ Smart, local-first task manager with AI-assisted tagging and task decomposition.
 ## Features
 
 - Local task storage in the browser (`localStorage`).
-- Fast add/complete/delete flow with progress stats.
+- Fast add/complete/delete flow with progress stats and 3-second undo for deletes.
+- Manual task ordering with drag-and-drop and up/down controls.
+- Inline task editing.
+- Task priorities: low, normal, high.
+- Manual due dates with today/overdue status.
 - Filters: all, active, completed.
-- Search by task title and generated tags.
-- AI auto-tagging for new tasks (Gemini).
+- Search by task title, generated tags, and subtask title.
+- Manual subtasks: add, edit, complete, delete, and reorder.
+- AI auto-tagging for new and edited tasks (Gemini).
 - AI decomposition into actionable subtasks (Gemini).
+- Literal `test` tasks are kept local and skipped from AI analysis.
 - Theme switcher (light/dark/system).
 
 ## Tech Stack

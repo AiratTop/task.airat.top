@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Purpose
-Public local-first task manager with AI-assisted features (`task.airat.top`).
+Public local-first task manager with manual planning controls and optional AI-assisted features (`task.airat.top`).
 
 ## Repository Role
 - Category: `*.airat.top` (public static tool).
@@ -14,6 +14,13 @@ Public local-first task manager with AI-assisted features (`task.airat.top`).
 - Static assets: `public/`.
 - Build output: `dist/`.
 
+## Product Behavior
+- Tasks are local-first and persisted in `localStorage`.
+- Tasks support manual ordering, inline editing, priorities (`low`, `normal`, `high`), and manual due dates.
+- Subtasks support manual add/edit/delete/complete and manual ordering.
+- Destructive task/subtask actions should preserve the existing 3-second undo pattern where practical.
+- Search should cover task titles, generated tags, and subtask titles.
+
 ## Site Conventions
 - Keep UI style aligned with AiratTop ecosystem.
 - Keep SEO metadata and social tags in `index.html`.
@@ -23,3 +30,6 @@ Public local-first task manager with AI-assisted features (`task.airat.top`).
 ## AI Working Notes
 - Keep app local-first (`localStorage`) and preserve offline-friendly behavior.
 - Keep Gemini integration and env expectations stable (`GEMINI_API_KEY`).
+- Do not ask Gemini to set due dates; due dates are manual-only.
+- Do not send a task titled exactly `test` (case-insensitive after trimming) to Gemini analysis.
+- Preserve existing task data compatibility; new fields should be optional or safely defaulted for older `localStorage` records.
