@@ -15,6 +15,7 @@ import {
   Split, 
   Pencil,
   Check,
+  Flag,
   ChevronDown, 
   ChevronUp,
   Search,
@@ -27,7 +28,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
 import { cn } from "./lib/utils";
-import { Task, SubTask, FilterType, AppSettings } from "./types";
+import { Task, SubTask, FilterType, AppSettings, TaskPriority } from "./types";
 import { analyzeTask, decomposeTask } from "./services/gemini";
 
 const STORAGE_KEY = "airat_tasks_v1";
@@ -37,6 +38,14 @@ const createId = () =>
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
     : Math.random().toString(36).substring(2, 11);
+
+const TASK_PRIORITIES: { value: TaskPriority; label: string; className: string }[] = [
+  { value: "low", label: "Low", className: "text-emerald-600 dark:text-emerald-400" },
+  { value: "normal", label: "Normal", className: "text-muted-foreground" },
+  { value: "high", label: "High", className: "text-rose-600 dark:text-rose-400" },
+];
+
+const getTaskPriority = (task: Task): TaskPriority => task.priority ?? "normal";
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -218,6 +227,7 @@ export default function App() {
       title: title,
       completed: false,
       createdAt: Date.now(),
+      priority: "normal",
       tags: [],
       subtasks: [],
       isDecomposed: false,
@@ -253,6 +263,12 @@ export default function App() {
       }
       return t;
     }));
+  };
+
+  const updateTaskPriority = (id: string, priority: TaskPriority) => {
+    setTasks(prev => prev.map(t =>
+      t.id === id ? { ...t, priority } : t
+    ));
   };
 
   const deleteTask = (id: string) => {
@@ -911,6 +927,36 @@ export default function App() {
                             </button>
                           </>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Priority */}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+                        <Flag className={cn(
+                          "ml-1 w-3.5 h-3.5",
+                          TASK_PRIORITIES.find(priority => priority.value === getTaskPriority(task))?.className
+                        )} />
+                        {TASK_PRIORITIES.map(priority => {
+                          const isActive = getTaskPriority(task) === priority.value;
+
+                          return (
+                            <button
+                              key={priority.value}
+                              type="button"
+                              onClick={() => updateTaskPriority(task.id, priority.value)}
+                              className={cn(
+                                "rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
+                                isActive
+                                  ? "bg-background text-foreground shadow-sm"
+                                  : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                              )}
+                              aria-pressed={isActive}
+                            >
+                              {priority.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 

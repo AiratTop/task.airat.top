@@ -4,6 +4,8 @@ export interface SubTask {
   completed: boolean;
 }
 
+export type TaskPriority = "low" | "normal" | "high";
+
 export interface Task {
   id: string;
   title: string;
@@ -11,6 +13,7 @@ export interface Task {
   completed: boolean;
   createdAt: number;
   completedAt?: number;
+  priority?: TaskPriority;
   tags: string[];
   subtasks: SubTask[];
   isDecomposed: boolean;
