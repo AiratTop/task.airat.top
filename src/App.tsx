@@ -1893,32 +1893,23 @@ export default function App() {
       </AnimatePresence>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card py-16">
+      <footer className="border-t border-border bg-card py-10">
         <div className="container max-w-4xl mx-auto px-4">
-          <div className="flex flex-col items-center text-center">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm shadow-black/10 dark:shadow-black/30">
-                <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold tracking-tight">Task.Airat.Top</span>
-            </div>
-            
-            <p className="text-sm text-muted-foreground max-w-md mb-10 leading-relaxed">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
               A smart, privacy-first task manager designed for personal productivity. 
               Powered by Gemini AI for intelligent tagging and decomposition.
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs font-medium uppercase tracking-widest text-muted-foreground/60 mb-10">
+            <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground/70">
+              <span>© 2026</span>
               <a href="https://airat.top" className="hover:text-primary transition-colors" target="_blank" rel="author">Airat.Top</a>
+              <span aria-hidden="true">|</span>
               <a href="https://github.com/AiratTop/task.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer">GitHub</a>
+              <span aria-hidden="true">|</span>
               <a href="https://privacy.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer privacy-policy">Privacy</a>
+              <span aria-hidden="true">|</span>
               <a href="https://terms.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer terms-of-service">Terms</a>
-            </div>
-
-            <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-border to-transparent mb-8" />
-
-            <p className="text-xs text-muted-foreground/50 font-mono">
-              © 2026 <a href="https://airat.top" className="hover:text-primary transition-colors underline underline-offset-4 decoration-border/50" target="_blank" rel="author">Airat.Top</a>
             </p>
           </div>
         </div>
