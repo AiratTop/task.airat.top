@@ -15,6 +15,7 @@ Smart, local-first task manager with manual task planning and optional AI-assist
 - Created and updated timestamps for tasks.
 - Fast add/complete/delete flow with progress stats and 3-second undo for deletes.
 - Manual task ordering with drag-and-drop and up/down controls.
+- Display sort modes: manual, due date, priority, and updated time.
 - Inline task editing.
 - Task priorities: low, normal, high.
 - Manual due dates with today/overdue status.

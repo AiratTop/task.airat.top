@@ -49,6 +49,7 @@ const TASK_PRIORITIES: { value: TaskPriority; label: string; className: string }
 
 type PriorityFilter = "all" | TaskPriority;
 type DueDateFilter = "all" | "today" | "upcoming" | "overdue" | "no-date";
+type SortMode = "manual" | "due-date" | "priority" | "updated";
 
 const PRIORITY_FILTERS: { value: PriorityFilter; label: string }[] = [
   { value: "all", label: "All priorities" },
@@ -64,6 +65,19 @@ const DUE_DATE_FILTERS: { value: DueDateFilter; label: string }[] = [
   { value: "overdue", label: "Overdue" },
   { value: "no-date", label: "No date" },
 ];
+
+const SORT_MODES: { value: SortMode; label: string }[] = [
+  { value: "manual", label: "Manual" },
+  { value: "due-date", label: "Due date" },
+  { value: "priority", label: "Priority" },
+  { value: "updated", label: "Updated" },
+];
+
+const PRIORITY_RANK: Record<TaskPriority, number> = {
+  high: 0,
+  normal: 1,
+  low: 2,
+};
 
 const getTaskPriority = (task: Task): TaskPriority => task.priority ?? "normal";
 
@@ -118,6 +132,30 @@ const matchesDueDateFilter = (task: Task, dueDateFilter: DueDateFilter) => {
   if (dueDateFilter === "today") return task.dueDate === today;
   if (dueDateFilter === "overdue") return !task.completed && task.dueDate < today;
   return task.dueDate > today;
+};
+
+const sortTasksForDisplay = (tasks: Task[], sortMode: SortMode) => {
+  if (sortMode === "manual") return tasks;
+
+  return [...tasks].sort((a, b) => {
+    if (sortMode === "due-date") {
+      const aDueDate = a.dueDate ?? "9999-12-31";
+      const bDueDate = b.dueDate ?? "9999-12-31";
+      const dueDateComparison = aDueDate.localeCompare(bDueDate);
+
+      if (dueDateComparison !== 0) return dueDateComparison;
+      return b.createdAt - a.createdAt;
+    }
+
+    if (sortMode === "priority") {
+      const priorityComparison = PRIORITY_RANK[getTaskPriority(a)] - PRIORITY_RANK[getTaskPriority(b)];
+
+      if (priorityComparison !== 0) return priorityComparison;
+      return b.createdAt - a.createdAt;
+    }
+
+    return (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt);
+  });
 };
 
 type UndoAction = {
@@ -176,6 +214,7 @@ export default function App() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [dueDateFilter, setDueDateFilter] = useState<DueDateFilter>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -890,7 +929,7 @@ export default function App() {
   const filteredTasks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return tasks.filter(t => {
+    const matchingTasks = tasks.filter(t => {
       const matchesFilter = 
         filter === "all" ? true :
         filter === "active" ? !t.completed :
@@ -906,7 +945,9 @@ export default function App() {
       
       return matchesFilter && matchesPriority && matchesDueDate && matchesSearch;
     });
-  }, [tasks, filter, priorityFilter, dueDateFilter, searchQuery]);
+
+    return sortTasksForDisplay(matchingTasks, sortMode);
+  }, [tasks, filter, priorityFilter, dueDateFilter, searchQuery, sortMode]);
 
   const stats = useMemo(() => ({
     total: tasks.length,
@@ -1091,6 +1132,24 @@ export default function App() {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
+              <Filter className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
+              {SORT_MODES.map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setSortMode(mode.value)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                    sortMode === mode.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                  )}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
           </div>
           {stats.completed > 0 && (
             <button 
@@ -1117,14 +1176,16 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 onDragOver={(event) => {
-                  if (draggedTaskId && draggedTaskId !== task.id) {
+                  if (sortMode === "manual" && draggedTaskId && draggedTaskId !== task.id) {
                     event.preventDefault();
                     event.dataTransfer.dropEffect = "move";
                   }
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
-                  handleTaskDrop(task.id, event);
+                  if (sortMode === "manual") {
+                    handleTaskDrop(task.id, event);
+                  }
                 }}
                 onDragEnd={() => setDraggedTaskId(null)}
                 className={cn(
@@ -1138,14 +1199,23 @@ export default function App() {
                   <div className="mt-0.5 flex flex-col items-center gap-1 text-muted-foreground">
                     <button
                       type="button"
-                      draggable
+                      draggable={sortMode === "manual"}
                       onDragStart={(event) => {
+                        if (sortMode !== "manual") {
+                          event.preventDefault();
+                          return;
+                        }
                         setDraggedTaskId(task.id);
                         event.dataTransfer.effectAllowed = "move";
                         event.dataTransfer.setData("text/plain", task.id);
                       }}
-                      className="cursor-grab rounded-md p-1 transition-colors hover:bg-muted active:cursor-grabbing"
-                      title="Drag to reorder"
+                      className={cn(
+                        "rounded-md p-1 transition-colors hover:bg-muted",
+                        sortMode === "manual"
+                          ? "cursor-grab active:cursor-grabbing"
+                          : "cursor-not-allowed opacity-30"
+                      )}
+                      title={sortMode === "manual" ? "Drag to reorder" : "Switch to Manual sort to reorder"}
                       aria-label="Drag to reorder"
                     >
                       <GripVertical className="w-4 h-4" />
@@ -1153,7 +1223,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => moveTaskByVisibleStep(task.id, -1)}
-                      disabled={index === 0}
+                      disabled={sortMode !== "manual" || index === 0}
                       className="rounded-md p-1 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
                       title="Move up"
                       aria-label="Move task up"
@@ -1163,7 +1233,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => moveTaskByVisibleStep(task.id, 1)}
-                      disabled={index === filteredTasks.length - 1}
+                      disabled={sortMode !== "manual" || index === filteredTasks.length - 1}
                       className="rounded-md p-1 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30"
                       title="Move down"
                       aria-label="Move task down"
