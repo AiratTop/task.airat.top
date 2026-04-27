@@ -14,15 +14,16 @@ Smart, local-first task manager with manual task planning and optional AI-assist
 - JSON export for all tasks.
 - Created and updated timestamps for tasks.
 - Fast add/complete/delete flow with progress stats and 3-second undo for deletes.
-- Manual task ordering with drag-and-drop and up/down controls.
+- Linked completion: completing a task completes its subtasks, and completing all subtasks completes the parent task.
+- Manual task ordering by dragging task titles in manual sort mode.
 - Display sort modes: manual, due date, priority, and updated time.
 - Inline task editing.
 - Task priorities: low, normal, high.
 - Manual due dates with today/overdue status.
 - Filters by task status, due date, and priority.
 - Search by task title, generated tags, and subtask title.
-- Manual tag editing: add and remove task tags.
-- Manual subtasks: add, edit, complete, delete, and reorder.
+- Manual tag editing with normalized lowercase kebab-case tags and suggestions from existing tags.
+- Manual subtasks: add, edit, complete, delete, and reorder by dragging subtask text.
 - AI auto-tagging for new and edited tasks (Gemini).
 - AI decomposition into actionable subtasks (Gemini).
 - Literal `test` tasks are kept local and skipped from AI analysis.

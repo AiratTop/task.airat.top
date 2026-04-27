@@ -751,10 +751,18 @@ export default function App() {
   };
 
   const startTaskPointerReorder = (taskId: string, event: React.PointerEvent<HTMLElement>) => {
-    if (event.pointerType === "mouse" || sortMode !== "manual") return;
+    if (sortMode !== "manual") return;
 
     event.currentTarget.setPointerCapture(event.pointerId);
     clearLongPressTimer();
+
+    if (event.pointerType === "mouse") {
+      event.preventDefault();
+      touchDraggedTaskIdRef.current = taskId;
+      setDraggedTaskId(taskId);
+      return;
+    }
+
     longPressTimerRef.current = window.setTimeout(() => {
       touchDraggedTaskIdRef.current = taskId;
       setDraggedTaskId(taskId);
@@ -987,10 +995,16 @@ export default function App() {
     subtaskId: string,
     event: React.PointerEvent<HTMLElement>
   ) => {
-    if (event.pointerType === "mouse") return;
-
     event.currentTarget.setPointerCapture(event.pointerId);
     clearLongPressTimer();
+
+    if (event.pointerType === "mouse") {
+      event.preventDefault();
+      touchDraggedSubtaskRef.current = { taskId, subtaskId };
+      setDraggedSubtask({ taskId, subtaskId });
+      return;
+    }
+
     longPressTimerRef.current = window.setTimeout(() => {
       touchDraggedSubtaskRef.current = { taskId, subtaskId };
       setDraggedSubtask({ taskId, subtaskId });
@@ -1387,21 +1401,10 @@ export default function App() {
                         </div>
                       ) : (
                         <h3
-                          draggable={sortMode === "manual"}
                           onPointerDown={(event) => startTaskPointerReorder(task.id, event)}
                           onPointerMove={handleTaskPointerMove}
                           onPointerUp={finishPointerReorder}
                           onPointerCancel={finishPointerReorder}
-                          onDragStart={(event) => {
-                            if (sortMode !== "manual") {
-                              event.preventDefault();
-                              return;
-                            }
-
-                            setDraggedTaskId(task.id);
-                            event.dataTransfer.effectAllowed = "move";
-                            event.dataTransfer.setData("text/plain", task.id);
-                          }}
                           className={cn(
                             "text-lg font-medium leading-tight break-words",
                             sortMode === "manual" && "cursor-grab select-none touch-none active:cursor-grabbing",
@@ -1697,16 +1700,10 @@ export default function App() {
                                 </>
                               ) : (
                                 <span
-                                  draggable
                                   onPointerDown={(event) => startSubtaskPointerReorder(task.id, st.id, event)}
                                   onPointerMove={handleSubtaskPointerMove}
                                   onPointerUp={finishPointerReorder}
                                   onPointerCancel={finishPointerReorder}
-                                  onDragStart={(event) => {
-                                    setDraggedSubtask({ taskId: task.id, subtaskId: st.id });
-                                    event.dataTransfer.effectAllowed = "move";
-                                    event.dataTransfer.setData("text/plain", st.id);
-                                  }}
                                   className={cn(
                                     "block text-sm leading-6 break-words cursor-grab select-none touch-none active:cursor-grabbing",
                                     st.completed && "line-through text-muted-foreground"
