@@ -171,6 +171,32 @@ export default function App() {
   }, [settings.theme]);
 
   const clearCompleted = () => {
+    const completedTasks = tasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => task.completed);
+
+    if (completedTasks.length === 0) return;
+
+    showUndo({
+      id: createId(),
+      message:
+        completedTasks.length === 1
+          ? "Completed task cleared"
+          : `${completedTasks.length} completed tasks cleared`,
+      restore: () => {
+        setTasks(prev => {
+          const next = [...prev];
+
+          completedTasks.forEach(({ task, index }) => {
+            if (next.some(existingTask => existingTask.id === task.id)) return;
+            next.splice(Math.min(index, next.length), 0, task);
+          });
+
+          return next;
+        });
+      },
+    });
+
     setTasks(prev => prev.filter(t => !t.completed));
   };
 
