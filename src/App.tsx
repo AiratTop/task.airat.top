@@ -1799,7 +1799,7 @@ export default function App() {
           {filteredTasks.length === 0 && (
             <div className="py-20 text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-                <Filter className="w-8 h-8 text-muted-foreground" />
+                <Search className="w-8 h-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-medium">No tasks found</h3>
               <p className="text-muted-foreground">Try changing your filter or adding a new task.</p>
