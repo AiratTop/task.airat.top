@@ -50,6 +50,33 @@ const getTaskPriority = (task: Task): TaskPriority => task.priority ?? "normal";
 
 const shouldSkipAiAnalysis = (title: string) => title.trim().toLowerCase() === "test";
 
+const getTodayDateKey = () => format(new Date(), "yyyy-MM-dd");
+
+const getDueDateStatus = (task: Task) => {
+  if (!task.dueDate) return null;
+
+  const today = getTodayDateKey();
+
+  if (!task.completed && task.dueDate < today) {
+    return {
+      label: "Overdue",
+      className: "border-destructive/30 bg-destructive/10 text-destructive",
+    };
+  }
+
+  if (task.dueDate === today) {
+    return {
+      label: "Today",
+      className: "border-primary/30 bg-primary/10 text-primary",
+    };
+  }
+
+  return {
+    label: "Due",
+    className: "border-border bg-muted/50 text-muted-foreground",
+  };
+};
+
 type UndoAction = {
   id: string;
   message: string;
@@ -266,6 +293,7 @@ export default function App() {
       completed: false,
       createdAt: Date.now(),
       priority: "normal",
+      dueDate: undefined,
       tags: [],
       subtasks: [],
       isDecomposed: false,
@@ -308,6 +336,12 @@ export default function App() {
   const updateTaskPriority = (id: string, priority: TaskPriority) => {
     setTasks(prev => prev.map(t =>
       t.id === id ? { ...t, priority } : t
+    ));
+  };
+
+  const updateTaskDueDate = (id: string, dueDate: string) => {
+    setTasks(prev => prev.map(t =>
+      t.id === id ? { ...t, dueDate: dueDate || undefined } : t
     ));
   };
 
@@ -1045,6 +1079,42 @@ export default function App() {
                             </button>
                           );
                         })}
+                      </div>
+                      <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2 py-1">
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                        <input
+                          type="date"
+                          value={task.dueDate ?? ""}
+                          onChange={(event) => updateTaskDueDate(task.id, event.target.value)}
+                          className="h-7 bg-transparent text-xs font-medium text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
+                          title="Due date"
+                          aria-label="Due date"
+                        />
+                        {task.dueDate && (
+                          <>
+                            {(() => {
+                              const dueStatus = getDueDateStatus(task);
+
+                              return dueStatus ? (
+                                <span className={cn(
+                                  "rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                                  dueStatus.className
+                                )}>
+                                  {dueStatus.label}
+                                </span>
+                              ) : null;
+                            })()}
+                            <button
+                              type="button"
+                              onClick={() => updateTaskDueDate(task.id, "")}
+                              className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                              title="Clear due date"
+                              aria-label="Clear due date"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 

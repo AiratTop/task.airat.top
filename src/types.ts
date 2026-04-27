@@ -14,6 +14,7 @@ export interface Task {
   createdAt: number;
   completedAt?: number;
   priority?: TaskPriority;
+  dueDate?: string;
   tags: string[];
   subtasks: SubTask[];
   isDecomposed: boolean;
