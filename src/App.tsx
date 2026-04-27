@@ -809,12 +809,16 @@ export default function App() {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <a
+            href="/"
+            className="flex items-center gap-2 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-primary/30"
+            aria-label="Task.Airat.Top home"
+          >
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
             </div>
             <h1 className="text-xl font-bold tracking-tight hidden sm:block">Task.Airat.Top</h1>
-          </div>
+          </a>
 
           <div className="flex items-center gap-2">
             <button 
