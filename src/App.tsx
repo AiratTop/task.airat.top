@@ -1115,14 +1115,14 @@ export default function App() {
         ))}
       </datalist>
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-md">
         <div className="container max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <a
             href="/"
             className="flex items-center gap-2 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-primary/30"
             aria-label="Task.Airat.Top home"
           >
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm shadow-black/10 dark:shadow-black/30">
               <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
             </div>
             <h1 className="text-xl font-bold tracking-tight hidden sm:block">Task.Airat.Top</h1>
@@ -1133,7 +1133,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={exportTasks}
-                className="p-2 rounded-full hover:bg-muted transition-colors"
+                className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 title="Export Tasks"
                 aria-label="Export tasks as JSON"
               >
@@ -1147,7 +1147,7 @@ export default function App() {
                   theme: (s.theme === "system" ? resolvedTheme : s.theme) === "dark" ? "light" : "dark",
                 }))
               }
-              className="p-2 rounded-full hover:bg-muted transition-colors"
+              className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               title="Toggle Theme"
             >
               {resolvedTheme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -1156,7 +1156,7 @@ export default function App() {
               href="https://github.com/AiratTop/task.airat.top" 
               target="_blank" 
               rel="noreferrer"
-              className="p-2 rounded-full hover:bg-muted transition-colors"
+              className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               title="GitHub Repository"
             >
               <Github className="w-5 h-5" />
@@ -1175,10 +1175,10 @@ export default function App() {
               placeholder="Search tasks or tags..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             />
           </div>
-          <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border border-border rounded-xl text-sm">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-card border border-border rounded-lg text-sm">
             <span className="text-muted-foreground">Progress</span>
             <span className="font-medium">{stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%</span>
           </div>
@@ -1195,7 +1195,7 @@ export default function App() {
               if (error) setError(null);
             }}
             className={cn(
-              "w-full pl-4 pr-28 py-4 bg-card border-2 border-border rounded-2xl text-lg focus:outline-none focus:border-primary transition-all shadow-sm group-focus-within:shadow-md",
+              "w-full pl-4 pr-28 py-4 bg-card border border-border rounded-lg text-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all shadow-sm shadow-black/5 dark:shadow-black/20",
               error && "border-destructive focus:border-destructive"
             )}
           />
@@ -1212,7 +1212,7 @@ export default function App() {
             type="button"
             onClick={handleVoiceInput}
             className={cn(
-              "absolute right-14 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all hover:scale-105 active:scale-95",
+              "absolute right-14 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors active:scale-95",
               isListening
                 ? "bg-destructive text-destructive-foreground"
                 : "bg-muted text-muted-foreground hover:text-foreground"
@@ -1225,7 +1225,7 @@ export default function App() {
           <button 
             type="submit"
             disabled={!newTaskTitle.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary text-primary-foreground rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:bg-primary/90 active:scale-95"
           >
             <Plus className="w-6 h-6" />
           </button>
@@ -1241,7 +1241,7 @@ export default function App() {
                     key={f}
                     onClick={() => setFilter(f)}
                     className={cn(
-                      "px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+                      "px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
                       filter === f 
                         ? "bg-primary text-primary-foreground shadow-sm" 
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -1261,7 +1261,7 @@ export default function App() {
                   type="button"
                   onClick={() => setIsSortMenuOpen(open => !open)}
                   className={cn(
-                    "flex items-center p-2 rounded-full transition-all",
+                    "flex items-center p-2 rounded-lg transition-all",
                     sortMode === "manual"
                       ? "text-muted-foreground hover:bg-muted hover:text-foreground"
                       : "bg-primary/10 text-primary hover:bg-primary/15"
@@ -1278,7 +1278,7 @@ export default function App() {
                       initial={{ opacity: 0, y: -6, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      className="absolute right-0 top-11 z-30 w-44 rounded-xl border border-border bg-card p-1.5 text-sm shadow-lg"
+                      className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-border bg-card p-1.5 text-sm shadow-lg shadow-black/10 dark:shadow-black/30"
                     >
                       {SORT_MODES.map((mode) => (
                         <button
@@ -1306,7 +1306,7 @@ export default function App() {
               {stats.completed > 0 && (
                 <button 
                   onClick={clearCompleted}
-                  className="group flex items-center p-2 text-destructive hover:bg-destructive/10 rounded-full transition-all"
+                  className="group flex items-center p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-all"
                   title="Clear Completed"
                 >
                   <Trash2 className="w-4.5 h-4.5" />
@@ -1318,7 +1318,7 @@ export default function App() {
             </div>
           </div>
           <div className="min-w-0 overflow-x-auto pb-1 scrollbar-hide">
-            <div className="flex w-max items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
+            <div className="flex w-max items-center gap-1 rounded-lg border border-border bg-card p-1">
               <Clock className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
               {DUE_DATE_FILTERS.map((dueFilter) => (
                 <button
@@ -1326,7 +1326,7 @@ export default function App() {
                   type="button"
                   onClick={() => setDueDateFilter(dueFilter.value)}
                   className={cn(
-                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                     dueDateFilter === dueFilter.value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
@@ -1338,7 +1338,7 @@ export default function App() {
             </div>
           </div>
           <div className="min-w-0 overflow-x-auto pb-1 scrollbar-hide">
-            <div className="flex w-max items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
+            <div className="flex w-max items-center gap-1 rounded-lg border border-border bg-card p-1">
               <Flag className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
               {PRIORITY_FILTERS.map((priority) => (
                 <button
@@ -1346,7 +1346,7 @@ export default function App() {
                   type="button"
                   onClick={() => setPriorityFilter(priority.value)}
                   className={cn(
-                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                     priorityFilter === priority.value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
@@ -1515,7 +1515,7 @@ export default function App() {
 
                     {/* Priority */}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+                      <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-1">
                         <Flag className={cn(
                           "ml-1 w-3.5 h-3.5",
                           TASK_PRIORITIES.find(priority => priority.value === getTaskPriority(task))?.className
@@ -1541,7 +1541,7 @@ export default function App() {
                           );
                         })}
                       </div>
-                      <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2 py-1">
+                      <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-2 py-1">
                         <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                         <input
                           type="date"
@@ -1877,7 +1877,7 @@ export default function App() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
-            className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-lg"
+            className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center justify-between gap-4 rounded-lg border border-border bg-card px-4 py-3 text-sm shadow-lg shadow-black/10 dark:shadow-black/30"
           >
             <span className="font-medium">{undoAction.message}</span>
             <button
@@ -1893,12 +1893,12 @@ export default function App() {
       </AnimatePresence>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-muted/20 py-16">
+      <footer className="border-t border-border bg-card py-16">
         <div className="container max-w-4xl mx-auto px-4">
           <div className="flex flex-col items-center text-center">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
-                <CheckCircle2 className="w-5 h-5 text-primary" />
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm shadow-black/10 dark:shadow-black/30">
+                <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
               </div>
               <span className="text-xl font-bold tracking-tight">Task.Airat.Top</span>
             </div>
