@@ -1909,8 +1909,7 @@ export default function App() {
         <div className="container max-w-4xl mx-auto px-4">
           <div className="flex flex-col items-center gap-4 text-center">
             <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-              A smart, privacy-first task manager designed for personal productivity. 
-              Powered by Gemini AI for intelligent tagging and decomposition.
+              A privacy-first task manager for focused personal planning.
             </p>
 
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground/70">
