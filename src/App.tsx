@@ -56,11 +56,11 @@ const PRIORITY_FILTERS: { value: PriorityFilter; label: string }[] = [
 ];
 
 const DUE_DATE_FILTERS: { value: DueDateFilter; label: string }[] = [
-  { value: "all", label: "All dates" },
+  { value: "all", label: "All" },
   { value: "today", label: "Today" },
-  { value: "upcoming", label: "Upcoming" },
-  { value: "overdue", label: "Overdue" },
-  { value: "no-date", label: "No date" },
+  { value: "upcoming", label: "Soon" },
+  { value: "overdue", label: "Late" },
+  { value: "no-date", label: "None" },
 ];
 
 const SORT_MODES: { value: SortMode; label: string }[] = [
