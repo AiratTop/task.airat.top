@@ -1327,44 +1327,46 @@ export default function App() {
               )}
             </div>
           </div>
-          <div className="min-w-0 overflow-x-auto pb-1 scrollbar-hide">
-            <div className="flex w-max items-center gap-1 rounded-lg border border-border bg-card p-1">
-              <Clock className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
-              {DUE_DATE_FILTERS.map((dueFilter) => (
-                <button
-                  key={dueFilter.value}
-                  type="button"
-                  onClick={() => setDueDateFilter(dueFilter.value)}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
-                    dueDateFilter === dueFilter.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
-                  )}
-                >
-                  {dueFilter.label}
-                </button>
-              ))}
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <div className="min-w-0 overflow-x-auto pb-1 scrollbar-hide">
+              <div className="flex w-max items-center gap-1 rounded-lg border border-border bg-card p-1">
+                <Clock className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
+                {DUE_DATE_FILTERS.map((dueFilter) => (
+                  <button
+                    key={dueFilter.value}
+                    type="button"
+                    onClick={() => setDueDateFilter(dueFilter.value)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                      dueDateFilter === dueFilter.value
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                    )}
+                  >
+                    {dueFilter.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="min-w-0 overflow-x-auto pb-1 scrollbar-hide">
-            <div className="flex w-max items-center gap-1 rounded-lg border border-border bg-card p-1">
-              <Flag className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
-              {PRIORITY_FILTERS.map((priority) => (
-                <button
-                  key={priority.value}
-                  type="button"
-                  onClick={() => setPriorityFilter(priority.value)}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
-                    priorityFilter === priority.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
-                  )}
-                >
-                  {priority.label}
-                </button>
-              ))}
+            <div className="min-w-0 overflow-x-auto pb-1 scrollbar-hide">
+              <div className="flex w-max items-center gap-1 rounded-lg border border-border bg-card p-1">
+                <Flag className="ml-1 w-3.5 h-3.5 text-muted-foreground" />
+                {PRIORITY_FILTERS.map((priority) => (
+                  <button
+                    key={priority.value}
+                    type="button"
+                    onClick={() => setPriorityFilter(priority.value)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                      priorityFilter === priority.value
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                    )}
+                  >
+                    {priority.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
