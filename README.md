@@ -43,6 +43,7 @@ Smart, local-first task manager with manual task planning and optional AI-assist
 - `public/` - static assets (`favicon`, `robots.txt`, `site.webmanifest`, `llms.txt`).
 - `index.html` - app shell and meta tags.
 - `vite.config.ts` - Vite config.
+- `wrangler.jsonc` - Cloudflare Worker and static asset configuration.
 
 ## Local Development
 
@@ -60,7 +61,7 @@ Prerequisites: Node.js 20+ and npm.
    ```bash
    npm run dev
    ```
-4. Open `http://localhost:3000`.
+4. Open `http://localhost:5173`.
 
 ## Build
 
@@ -69,14 +70,15 @@ npm run build
 npm run preview
 ```
 
-## Cloudflare Pages
+## Cloudflare Workers
 
-Use these settings for deployment:
+Use these Workers Builds settings for deployment:
 
 - Project root: `/` (repository root)
 - Build command: `npm run build`
-- Build output directory: `dist`
-- Environment variable: `GEMINI_API_KEY`
+- Deploy command: `npx wrangler deploy`
+- Static asset directory: `dist` (configured in `wrangler.jsonc`)
+- Build variable: `GEMINI_API_KEY`
 - Production URL: `https://task.airat.top`
 
 ## License

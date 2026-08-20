@@ -5,7 +5,8 @@ Public local-first task manager with manual planning controls and optional AI-as
 
 ## Repository Role
 - Category: `*.airat.top` (public static tool).
-- Deployment platform: Cloudflare Pages.
+- Deployment platform: Cloudflare Workers (static assets).
+- Deployment configuration: `wrangler.jsonc`.
 - Stack: React + TypeScript + Vite.
 
 ## Content and Structure
@@ -33,7 +34,7 @@ Public local-first task manager with manual planning controls and optional AI-as
 - Keep UI style aligned with AiratTop ecosystem.
 - Keep SEO metadata and social tags in `index.html`.
 - Keep required counters/verification tags (Google Analytics + Yandex verification).
-- For this Vite project, deploy `dist/` to Cloudflare Pages (not `public_html`).
+- For this Vite project, deploy `dist/` through Cloudflare Workers (not `public_html`).
 
 ## AI Working Notes
 - Keep app local-first (`localStorage`) and preserve offline-friendly behavior.
