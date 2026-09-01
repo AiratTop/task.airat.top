@@ -83,11 +83,15 @@ Use these Workers Builds settings for deployment:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The original source code, configuration, and documentation in this repository are licensed under
+the [Apache License 2.0](LICENSE), with copyright details in [NOTICE](NOTICE).
+
+Packages listed in `package.json` and `package-lock.json` are third-party software and remain
+subject to their respective licenses.
 
 ## Author
 
-**AiratTop**
+**AiratTop (Airat Halitov)**
 
 - Website: [airat.top](https://airat.top)
 - GitHub: [@AiratTop](https://github.com/AiratTop)
