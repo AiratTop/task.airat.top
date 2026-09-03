@@ -1915,11 +1915,13 @@ export default function App() {
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground/70">
               <span>© 2026</span>
               <a href="https://airat.top" className="hover:text-primary transition-colors" target="_blank" rel="author">Airat.Top</a>
-              <span aria-hidden="true">|</span>
+              <span aria-hidden="true">·</span>
               <a href="https://github.com/AiratTop/task.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer">GitHub</a>
-              <span aria-hidden="true">|</span>
+              <span aria-hidden="true">·</span>
+              <a href="https://status.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer">Status</a>
+              <span aria-hidden="true">·</span>
               <a href="https://privacy.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer privacy-policy">Privacy</a>
-              <span aria-hidden="true">|</span>
+              <span aria-hidden="true">·</span>
               <a href="https://terms.airat.top" className="hover:text-primary transition-colors" target="_blank" rel="noreferrer terms-of-service">Terms</a>
             </p>
           </div>
