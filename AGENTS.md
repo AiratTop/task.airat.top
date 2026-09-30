@@ -33,7 +33,7 @@ Public local-first task manager with manual planning controls and optional AI-as
 ## Site Conventions
 - Keep UI style aligned with AiratTop ecosystem.
 - Keep SEO metadata and social tags in `index.html`.
-- Keep the Google Analytics counter and other required site-verification tags.
+- Keep the required site-verification tags. No analytics or other third-party tracking scripts: this tool handles what users type into it.
 - For this Vite project, deploy `dist/` through Cloudflare Workers (not `public_html`).
 
 ## AI Working Notes
