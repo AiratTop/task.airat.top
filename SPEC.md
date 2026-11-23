@@ -404,7 +404,7 @@ PATCH  /api/tasks/:id/subtasks/:sid            { ...fields, version }
 DELETE /api/tasks/:id/subtasks/:sid            soft delete → { actionId }
 POST   /api/tasks/:id/subtasks/:sid/move       { before?: id, after?: id }
 
-POST   /api/tasks/:id/ai/tags                  → { tags, actionId }      (§8.3)
+POST   /api/tasks/:id/ai/tags                  → { tags, actionId }      (§9.3)
 POST   /api/tasks/:id/ai/decompose             → { subtasks, actionId }
 
 POST   /api/actions/:id/undo                   → { applied, skipped }    (§8)
@@ -437,7 +437,7 @@ GET    /health
   individual optimistic steps.
 - Concurrent edits from different devices: last write wins per field set by the request.
   Acceptable for one person on a few devices; revisited only if it causes real loss.
-- AI writes are the exception: they are version-checked (§8.3).
+- AI writes are the exception: they are version-checked (§9.3).
 
 ### 7.2. Local format, export and import
 
