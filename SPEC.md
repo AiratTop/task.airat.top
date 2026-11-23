@@ -80,8 +80,12 @@ as different values. `sub` is stored as `users.oidc_sub` for reference only.
 
 ### 3.2. Web sign-in: Telegram OIDC
 
-- Authorization Code flow with PKCE (`S256`), `state` for CSRF, `nonce` bound to the session
-  that started the flow.
+- Authorization Code flow with PKCE (`S256`), `state` and `nonce`.
+- `state` is bound to the browser that started the flow: `/auth/telegram/start` sets a
+  short-lived `__Host-auth_state` cookie (`HttpOnly; Secure; SameSite=Lax`, 10 minutes)
+  holding the `state`, and the callback rejects a `state` that does not match it. Without
+  this binding an attacker can complete a login in the victim's browser with the attacker's
+  account (login CSRF).
 - Endpoints from `https://oauth.telegram.org/.well-known/openid-configuration`:
   `/auth`, `/token`, `/.well-known/jwks.json`. Issuer `https://oauth.telegram.org`.
 - `client_id` is the bot id (`TELEGRAM_CLIENT_ID`); the token request uses HTTP Basic with
@@ -120,9 +124,11 @@ as different values. `sub` is stored as `users.oidc_sub` for reference only.
 
 - A session token is 32 random bytes, base64url. Only its SHA-256 digest is stored.
 - Web: cookie `__Host-session`, `HttpOnly; Secure; SameSite=Lax; Path=/`, 30 days, sliding.
+  `expires_at` is extended at most once a day, so reads do not turn into writes.
 - Mini App: `Authorization: Bearer <token>`, 24 hours, re-issued from `initData` on launch.
 - **Mutating API requests with a cookie session MUST carry a same-origin `Origin` header.**
   Bearer requests are exempt (they are not sent automatically by a browser).
+- The API is same-origin only and sends no CORS headers.
 - Sign-out deletes the session row. Account deletion deletes all of them.
 
 ### 3.6. Access mode (private beta)
@@ -167,13 +173,26 @@ resolution order.
 4. `en`.
 
 Telegram's `language_code` reflects the app's UI language and may be absent. Profile fields
-other than an explicit choice are refreshed on each sign-in and each update; an explicit
-choice is never overwritten (`language_source = 'user'`).
+other than an explicit choice are refreshed on each sign-in and each update, and written only
+when a value actually changed; an explicit choice is never overwritten
+(`language_source = 'user'`).
+
+**Photos** are Telegram-hosted URLs (`picture`, `photo_url`; the Mini App's may be SVG). They
+are shown only through `<img>`, never inlined or fetched by the Worker, and the CSP `img-src`
+allows exactly the Telegram hosts observed in Phase 0.
+
+**`can_message`** — whether the token response or ID token shows that `telegram:bot_access`
+was granted is verified in Phase 0. Until then `can_message` becomes `1` only when the user
+starts the bot or the Mini App reports `allows_write_to_pm`, and `0` on a `my_chat_member`
+update saying the bot was blocked.
 
 **Time zone** — an IANA name in `users.time_zone`:
 1. explicit user choice;
 2. the browser / Mini App `Intl` value, sent on every sign-in and on launch;
 3. `UTC`.
+
+A submitted time zone is accepted only if `new Intl.DateTimeFormat('en', { timeZone })` accepts
+it in the Worker; anything else is ignored.
 
 Telegram exposes no time zone anywhere. A bot-only user therefore starts at `UTC`; `/today`
 states which time zone it used and offers a button that opens the Mini App, which sets the
@@ -184,7 +203,9 @@ webhook request comes from Telegram's servers, not from the user.
 
 ## 5. Data model (D1)
 
-All ids are UUIDv7 strings unless noted. Times are integer milliseconds since the epoch, UTC.
+New ids are UUIDv7 strings. Task and subtask ids created by v1 are UUIDv4
+(`crypto.randomUUID()`) and are kept as they are on import, so `tasks.id` and `subtasks.id`
+accept any canonical lowercase UUID. Times are integer milliseconds since the epoch, UTC.
 Dates without time (`due_date`) are `YYYY-MM-DD` strings interpreted in the user's time zone.
 
 ```sql
@@ -277,6 +298,16 @@ Rules:
 - D1 allows 100 bound parameters per statement. Bulk operations (import, reorder) are chunked.
 - Migrations are forward-only. An incompatible change is expand → migrate → contract across
   releases.
+- **Domain rules are enforced on the server, on every write path** — API, import, bot and AI
+  operations alike — not only in the UI:
+  - completing a task completes all its subtasks; completing the last open subtask completes
+    the task; reopening a subtask reopens a completed task;
+  - tags are normalised to lowercase kebab-case, deduplicated and capped (§5.1);
+  - any change to content or state sets `updated_at`; completion sets or clears
+    `completed_at`.
+
+  These rules live in one shared module (`src/domain/`) imported by both the client and the
+  Worker, so the web app's optimistic result and the server's stored result cannot diverge.
 - **LATER, kept possible:** time tracking adds a `time_entries (task_id, user_id, started_at,
   ended_at, source)` table; reminders add `reminder_at` / a `reminders` table. Neither needs a
   change to the tables above.
@@ -299,8 +330,10 @@ Rules:
 
 ## 6. HTTP API
 
-JSON over HTTPS. Errors are `application/problem+json` (RFC 9457) with a stable `type`
-(`https://task.airat.top/errors/<code>`), `title`, `status`, and an `X-Request-Id` header.
+JSON over HTTPS. Errors on `/api/*` are `application/problem+json` (RFC 9457) with a stable
+`type` (`https://task.airat.top/errors/<code>`), `title`, `status`, and an `X-Request-Id`
+header. `/auth/*` routes are browser navigations: their errors are a small localised HTML page
+with a link back, not JSON.
 
 ```text
 GET    /auth/telegram/start?return_to=/        → 302 to oauth.telegram.org
@@ -334,8 +367,9 @@ POST   /telegram/webhook                       Telegram only
 GET    /health
 ```
 
-- Clients MAY supply a UUIDv7 `id` on create; the server rejects an id that exists for
-  another user. This keeps local ids stable through import and optimistic UI.
+- Clients MAY supply an `id` on create (UUIDv7 for new records, any UUID on import); the
+  server rejects an id that already exists, whoever owns it. This keeps local ids stable
+  through import and optimistic UI.
 - Responses that carry user data are `Cache-Control: no-store`.
 
 ---
@@ -344,8 +378,8 @@ GET    /health
 
 - The server is the source of truth. The client applies changes optimistically and rolls
   back on error.
-- The client refetches `GET /api/tasks` on start, on `visibilitychange` to visible, and after
-  the bot reports an action when opened from it.
+- The client refetches `GET /api/tasks` on start and on `visibilitychange` to visible. That
+  covers changes made through the bot while the app was in the background.
 - Concurrent edits: last write wins per request. Acceptable for one person on a few devices;
   revisited only if it causes real loss.
 - No offline queue while signed in (LATER). Guest mode remains fully offline.
@@ -357,6 +391,8 @@ GET    /health
 - Import is idempotent by task id (`INSERT ... ON CONFLICT DO NOTHING`).
 - After a successful import the local copy is kept until the user chooses to clear it.
 - Existing `localStorage` records stay readable: new fields are optional or defaulted.
+- The demo task is a guest-mode feature, as in v1. A new account with nothing to import
+  starts empty, with a localised empty state that explains the web app, the bot and voice.
 
 ---
 
@@ -380,9 +416,14 @@ what passes.
 create_task    { title, priority?, tags?, subtasks? }
 add_subtasks   { task_ref, titles[] }
 set_tags       { task_ref, tags[] }
-complete_task  { task_ref }
-reply          { text }            -- when the message is a question, not a change
+complete_task     { task_ref }
+complete_subtask  { task_ref, subtask_ref }
+reply             { text }         -- a question, an ambiguity, or nothing to change
 ```
+
+- The model emits `complete_task` / `complete_subtask` only for an unambiguous match. When
+  several open tasks could match ("I finished the report" with two reports open), it emits
+  `reply` asking which one, and the bot attaches one button per candidate.
 
 - `task_ref` is a short reference (`t1`, `t2`, …) to the open-task list given to the model,
   mapped back to ids by the server. The model never sees or returns real ids.
@@ -391,6 +432,9 @@ reply          { text }            -- when the message is a question, not a chan
 - **No deletion through AI in v2.** No due dates through AI in v2 (§13).
 - All applied operations of one message form one `bot_actions` row with its inverse, offered
   as an "Undo" button.
+- Undo never overwrites a later change. Each inverse step carries the `updated_at` the
+  action left behind and applies only if the row still has it (a `WHERE` condition). Items
+  changed since are skipped, and the reply says how many.
 - The open-task list sent to the model is capped (most recent 100 open tasks, titles only).
 - User text and transcripts are untrusted input. The prompt marks them as data; the schema
   limits what any output can do to the user's own tasks.
@@ -431,7 +475,7 @@ reply          { text }            -- when the message is a question, not a chan
 | Command | Behaviour |
 |---|---|
 | `/start` | Greeting in the user's language, what the bot does, a button to open the app. Deep-link payloads reserved for LATER. |
-| `/today` | Overdue + due today + open high-priority tasks, in the user's time zone, which the header names. Each with a "Done" button. |
+| `/today` | Overdue + due today + open high-priority tasks, in the user's time zone, which the header names. Up to 20 tasks, each with a "Done" button; more are reached through "Open app". |
 | `/list` | Open tasks, 10 per page, edited in place with ◀ ▶. |
 | `/app` | A button that opens the Mini App. |
 | `/help` | Commands and examples of what can be said or typed. |
@@ -439,6 +483,11 @@ reply          { text }            -- when the message is a question, not a chan
 
 Any other text or a voice message goes through interpretation (§8.1). A reply lists what was
 created, completed or tagged, plus "Undo" and "Open app".
+
+Only `voice` messages are transcribed. Audio files, video notes, photos, stickers and
+documents get a short localised hint saying what the bot understands. Every outgoing message
+stays under Telegram's 4,096-character limit; long lists are paginated or truncated with a
+pointer to the app.
 
 ### 9.3. Webhook processing
 
@@ -449,6 +498,13 @@ created, completed or tagged, plus "Undo" and "Open app".
 4. Access check (§3.6), upsert the user, route by command / callback / text / voice.
 5. Errors after step 3 are logged (without content) and the user gets a short localised
    "Something went wrong, try again" reply.
+
+**The trade-off, stated.** Recording the update before processing it means a failure after
+step 3 is not retried by Telegram; the user is told and resends. The alternative — answering
+only after processing — makes Telegram retry slow voice messages and duplicates tasks.
+Processing in `waitUntil` must finish within the platform's post-response limit (30 seconds at
+the time of writing; Phase 0 measures transcription + interpretation against it). If it does
+not fit, voice moves to a Queue consumer and this section changes first.
 
 `allowed_updates`: `message`, `callback_query`, `my_chat_member` (to keep `can_message`
 current when a user blocks or unblocks the bot).
@@ -489,11 +545,17 @@ current when a user blocks or unblocks the bot).
   Worker secrets; locally in `.dev.vars` (git-ignored). Never in the repository, logs or docs.
 - Logs never contain task titles, descriptions, transcripts, tokens, `initData`, ID tokens
   or names. They carry request id, user id, operation counts, durations, error codes.
-- Security headers on HTML: strict CSP (self only, plus `https://oauth.telegram.org` as a
-  navigation target), `frame-ancestors` allowing Telegram's web clients for `/app` only,
-  `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`.
+- Security headers on HTML:
+  - CSP: `default-src 'self'`; `script-src 'self'`; `connect-src 'self'`; `img-src 'self'
+    data:` plus the Telegram photo hosts (§4); `form-action 'self'`; `base-uri 'none'`;
+  - `frame-ancestors 'none'` everywhere except `/app`, which allows Telegram's web clients
+    (`https://web.telegram.org`) — mobile and desktop clients use a WebView, not a frame;
+  - `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`.
+
+  The sign-in redirect to `oauth.telegram.org` is a server `302`, so it needs no CSP entry.
 - Rate limits per IP on `/auth/*` and `/api/auth/miniapp`, per user on mutating API calls,
-  through the `RATE_LIMITER` Durable Object.
+  through the `RATE_LIMITER` Durable Object. The per-IP object is addressed by a hash of the
+  address; raw IPs are never stored or logged.
 - Account deletion (`DELETE /api/me`, `/delete_me`) removes the user and, by cascade, all
   tasks, subtasks, sessions and bot actions, immediately.
 - The privacy page (`privacy.airat.top`) is updated before `ACCESS_MODE=open`: what is stored,
@@ -523,8 +585,12 @@ current when a user blocks or unblocks the bot).
 ## 15. Deployment
 
 - One environment, production. One Worker `task-airat`, one D1 `task-airat`, one bot.
-- `wrangler.jsonc` describes production. Local `wrangler dev` uses a local D1 by default;
-  Workers AI has no local simulator, so tests stub it.
+- `wrangler.jsonc` describes production. Local `wrangler dev` uses a local D1 by default.
+  Workers AI has no local simulator: tests stub it, and `wrangler dev` calls the real service
+  and spends the account's quota.
+- `.dev.vars` holds local secrets for `wrangler dev` and the Telegram setup script. Local
+  development cannot complete OIDC sign-in (the only registered redirect is production) and
+  cannot receive bot updates (the webhook points at production); both are covered by tests.
 - GitHub Actions is the only deploy path:
   - `ci.yml` on pull requests: typecheck, lint, tests, build;
   - `deploy.yml` on push to `main`: tests → `wrangler d1 migrations apply --remote` →
@@ -534,8 +600,11 @@ current when a user blocks or unblocks the bot).
 - Telegram setup (`setWebhook`, commands, descriptions, menu button) is a script run by hand,
   reading the token from the environment, never printing it.
 - Safety without staging: forward-only migrations, D1 Time Travel for point-in-time restore,
-  integration tests on a local D1 before every deploy, no production `--remote` writes from a
-  laptop.
+  integration tests on a local D1 before every deploy.
+- **Production data and schema are written only by CI** (migrations) and by the running
+  Worker. One-off infrastructure setup from a laptop — creating the database, `wrangler
+  secret put`, the Telegram setup script — is allowed; `wrangler d1 execute --remote` with
+  anything other than a `SELECT`, and `wrangler deploy` from a laptop, are not.
 - Cron (hourly): purge expired sessions and auth states, `telegram_updates` older than 7
   days, expired `bot_actions`, tasks soft-deleted more than 30 days ago.
 
@@ -549,4 +618,6 @@ current when a user blocks or unblocks the bot).
 | AI contract | same pool | interpreter output validation: malformed JSON, unknown refs, over-limit values, forbidden operations |
 | Smoke | after deploy, in CI | `/health`: D1 reachable, latest applied migration, and the Worker's own `getWebhookInfo` check (URL matches, no recent error) reported as `ok`/`degraded` without exposing details. The bot token stays a Worker secret and is not given to CI. |
 
-A pull request is merged only with all of the above green.
+Unit, integration, bot and AI-contract tests gate every merge and run again at the start of
+every deploy. The smoke check runs after the deploy and fails the workflow run if the
+deployed Worker is not healthy.

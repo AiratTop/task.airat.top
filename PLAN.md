@@ -25,8 +25,12 @@ Things only the owner can do. Ticked items are done.
 [x] Owner's Telegram user id for ALLOWED_TELEGRAM_IDS: 1657755761
 [x] BotFather → Access: Restrict bot usage on, allowed users: the owner
     (switched off together with ACCESS_MODE=open, SPEC §3.6)
-[ ] Phase 5: BotFather → Main Mini App / menu button URL https://task.airat.top/app
-    (the script can set the menu button; Main Mini App is BotFather-only)
+[x] BotFather: Mini App URL https://task.airat.top/app
+    (serves the v1 page until Phase 5; the setup script sets the same URL, idempotently)
+[x] BotFather: privacy policy URL https://privacy.airat.top
+    (the page covers the bot only after Phase 6 — fine while access is restricted)
+[ ] Phase 0: real voice samples (.ogg, RU and EN) in spikes/samples/ (git-ignored)
+[ ] Phase 0: one OIDC sign-in in a browser for the claims check (steps in Phase 0)
 ```
 
 Done by the agent with the owner's standing approval for this project:
@@ -39,6 +43,9 @@ Done by the agent with the owner's standing approval for this project:
 - running the Telegram setup script (`setWebhook`, commands, descriptions, menu button).
 
 **Note.** With Workers Builds disconnected, nothing deploys until Phase 1 adds `deploy.yml`.
+
+**Note.** `AGENTS.md` still describes v1 (Gemini, local-only). Until Phase 1 rewrites it,
+its header points here and to `SPEC.md`, which take precedence.
 
 ---
 
@@ -54,11 +61,23 @@ this section.
     (create, multi-task, subtasks, "I finished X and Y", questions); pick by schema
     adherence, accuracy, latency, neuron cost
 [ ] Telegram OIDC: ID token claims for this bot with `openid profile telegram:bot_access`;
-    confirm `id` is the numeric Telegram user id and differs from `sub`
-[ ] initData validation against a real launch; decide @telegram-apps/sdk vs in-repo shim
-    (size, licence, works without the telegram.org script)
+    confirm `id` is the numeric Telegram user id and differs from `sub`; whether the
+    token response shows that `telegram:bot_access` was granted; which hosts serve
+    `picture` (for CSP img-src)
+[ ] decide @telegram-apps/sdk vs an in-repo shim (size, licence, works without the
+    telegram.org script). Validation against a real launch happens in Phase 5: nothing
+    can capture initData before the /app entry exists
+[ ] time budget: transcription + interpretation of a 60-second voice message fits in
+    the post-response `waitUntil` window (SPEC §9.3), with margin
 [ ] Workers AI pricing/limits on this account → confirm the quotas in SPEC §8.2
 ```
+
+**How the OIDC check runs without a deployed callback.** A local script prints an
+authorization URL with a fresh PKCE pair. The owner opens it and signs in. Telegram
+redirects to the production callback, which does not exist yet, so the page is a 404 — but
+the `code` is in the address bar. The owner pastes that URL back. The script exchanges the
+code using `.dev.vars` and prints the claim **names** and value **types**, not the values.
+The code is single-use and expires in minutes.
 
 **Exit:** every box ticked with a one-line result here, and SPEC updated where a result
 changed it.
@@ -67,12 +86,15 @@ changed it.
 
 ## 3. Phase 1 — Cleanup, structure, CI
 
-Behaviour does not change. Guest mode is the only mode.
+Behaviour does not change except that AI is removed (it has been inert since the key was
+revoked). Guest mode is the only mode.
 
 ```text
 [ ] remove @google/genai, express, @types/express, dotenv, tsx, metadata.json,
     the vite `define` of GEMINI_API_KEY, AI Studio comments, .env.example
 [ ] package name, scripts (dev, build, test, typecheck, lint), Node version pinned
+[ ] dependencies updated; `npm audit` reports no high or critical issues
+    (GitHub currently reports 38, most expected to go with the removed packages)
 [ ] split src/App.tsx into components/, hooks/, domain/, storage/
 [ ] TaskRepository interface; LocalTaskRepository over the existing localStorage key
 [ ] domain logic as pure functions with unit tests (see SPEC §16)
@@ -90,9 +112,11 @@ CI green; deploy from `main` works.
 ## 4. Phase 2 — Worker, D1, sign-in, API
 
 ```text
-[ ] wrangler.jsonc: main, assets (run_worker_first for /api, /auth, /telegram), D1, DO,
-    AI, cron, observability; ACCESS_MODE=allowlist, ALLOWED_TELEGRAM_IDS
+[ ] wrangler.jsonc: main; assets with run_worker_first for /api/*, /auth/*, /telegram/*,
+    /health and single-page-application fallback (so /app serves the SPA); D1, DO, AI,
+    cron, observability; ACCESS_MODE=allowlist, ALLOWED_TELEGRAM_IDS=1657755761
 [ ] migrations/0001_init.sql per SPEC §5
+[ ] domain rules enforced in the Worker through the shared src/domain module (SPEC §5)
 [ ] router, problem+json errors, request id, security headers, rate limiter DO
 [ ] Telegram OIDC (SPEC §3.2), sessions (§3.5), allowlist (§3.6)
 [ ] /api/me, tasks, subtasks, order, import, export, account deletion
@@ -144,6 +168,7 @@ action, uses /today and /list; a non-allowlisted account gets the beta reply wit
 
 ```text
 [ ] /app entry, launch params, initData exchange, bearer session
+[ ] initData validated against real launches (not only test fixtures)
 [ ] Telegram theme, BackButton, HapticFeedback, safe areas
 [ ] time zone sent on launch; bot /today offers "set time zone" → Mini App
 [ ] frame-ancestors / CSP for /app verified in Telegram iOS, Android, Desktop, Web

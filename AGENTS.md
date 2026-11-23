@@ -1,5 +1,10 @@
 # AGENTS.md
 
+> **v2 in progress.** `SPEC.md` (architecture and behaviour) and `PLAN.md` (order of work)
+> take precedence over everything below. The sections below describe v1 and will be
+> rewritten in PLAN Phase 1. In particular, the Gemini notes are obsolete: the key is revoked
+> and AI moves to Workers AI on the server.
+
 ## Purpose
 Public local-first task manager with manual planning controls and optional AI-assisted features (`task.airat.top`).
 

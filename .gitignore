@@ -9,3 +9,4 @@ coverage/
 .dev.vars*
 !.dev.vars.example
 .wrangler/
+spikes/samples/
