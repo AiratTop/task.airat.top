@@ -3,9 +3,13 @@
 Order of work for v2. Architecture and behaviour are in `SPEC.md`; this file says what is
 built when, and what "done" means for each phase.
 
-A phase starts only when the previous one is merged and deployed. Until branch protection is
-enabled, work is committed to `main` directly; once it is, each phase is one pull request.
-Pushing to `main` deploys to production (from Phase 1 on).
+A phase starts only when the previous one is merged and deployed. Each phase ends with a
+deploy that the owner checks by hand against its exit criteria.
+
+**Branch flow.** Until Phase 1a is done, work is committed to `main` directly (there is no CI
+yet to protect it with). At the end of Phase 1a the owner enables branch protection on
+`main` (pull request + required `ci` check); from then on every change is a pull request,
+merged once its checks are green. Pushing to `main` deploys to production from Phase 1a on.
 
 ---
 
@@ -19,18 +23,21 @@ Things only the owner can do. Ticked items are done.
 [x] BotFather → Login Widget: redirect https://task.airat.top/auth/telegram/callback
 [x] BotFather: commands /start /today /list /app /help /delete_me
     (the Phase 4 script replaces them with localised descriptions)
-[x] Cloudflare: Workers Builds disconnected from the repository
-[x] GitHub: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (Workers Scripts:Edit, D1:Edit)
-[x] .dev.vars with TELEGRAM_BOT_TOKEN, TELEGRAM_CLIENT_ID, TELEGRAM_CLIENT_SECRET
-[x] Owner's Telegram user id for ALLOWED_TELEGRAM_IDS: 1657755761
-[x] BotFather → Access: Restrict bot usage on, allowed users: the owner
-    (switched off together with ACCESS_MODE=open, SPEC §3.6)
 [x] BotFather: Mini App URL https://task.airat.top/app
     (serves the v1 page until Phase 5; the setup script sets the same URL, idempotently)
 [x] BotFather: privacy policy URL https://privacy.airat.top
-    (the page covers the bot only after Phase 6 — fine while access is restricted)
-[ ] Phase 0: real voice samples (.ogg, RU and EN) in spikes/samples/ (git-ignored)
+    (the page covers the bot only after Phase 6 — acceptable while access is restricted)
+[x] BotFather → Access: Restrict bot usage on, allowed users: the owner
+    (switched off together with ACCESS_MODE=open, SPEC §3.6)
+[x] Owner's Telegram user id for ALLOWED_TELEGRAM_IDS: 1657755761
+[x] Cloudflare: Workers Builds disconnected from the repository
+[x] GitHub: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (Workers Scripts:Edit, D1:Edit)
+[x] .dev.vars with TELEGRAM_BOT_TOKEN, TELEGRAM_CLIENT_ID, TELEGRAM_CLIENT_SECRET
+[ ] Phase 0: real voice samples (.ogg, RU and EN, up to 60 s) in spikes/samples/
 [ ] Phase 0: one OIDC sign-in in a browser for the claims check (steps in Phase 0)
+[ ] Phase 0: a daily money limit for Workers AI, to set the global AI ceiling (SPEC §9.4)
+[ ] End of Phase 1a: branch protection on main (PR + required `ci` check)
+[ ] Phase 2: a Cloudflare budget alert, if not already set on the account
 ```
 
 Done by the agent with the owner's standing approval for this project:
@@ -42,34 +49,33 @@ Done by the agent with the owner's standing approval for this project:
   keeps only what local development and the setup script need;
 - running the Telegram setup script (`setWebhook`, commands, descriptions, menu button).
 
-**Note.** With Workers Builds disconnected, nothing deploys until Phase 1 adds `deploy.yml`.
-
-**Note.** `AGENTS.md` still describes v1 (Gemini, local-only). Until Phase 1 rewrites it,
-its header points here and to `SPEC.md`, which take precedence.
+**Current state, until Phase 1a ships.** Nothing deploys on push (Workers Builds is
+disconnected and `deploy.yml` does not exist yet). The live site is v1 with AI inert.
+`README.md` and `AGENTS.md` carry a notice that they describe v1.
 
 ---
 
 ## 2. Phase 0 — Verify assumptions
 
-No production code. Throwaway scripts under `spikes/` (not deployed), results recorded in
-this section.
+No production code. Throwaway scripts under `spikes/` (not deployed); results recorded in
+this section, and SPEC updated wherever a result changes it.
 
 ```text
 [ ] Whisper (@cf/openai/whisper-large-v3-turbo) accepts Telegram OGG/Opus as sent;
-    if not, which Workers AI ASR model does; Russian and English quality on 5 real samples
-[ ] LLM for interpretation: compare 2–3 Workers AI models on 15 RU/EN messages
-    (create, multi-task, subtasks, "I finished X and Y", questions); pick by schema
-    adherence, accuracy, latency, neuron cost
-[ ] Telegram OIDC: ID token claims for this bot with `openid profile telegram:bot_access`;
-    confirm `id` is the numeric Telegram user id and differs from `sub`; whether the
-    token response shows that `telegram:bot_access` was granted; which hosts serve
-    `picture` (for CSP img-src)
-[ ] decide @telegram-apps/sdk vs an in-repo shim (size, licence, works without the
-    telegram.org script). Validation against a real launch happens in Phase 5: nothing
-    can capture initData before the /app entry exists
-[ ] time budget: transcription + interpretation of a 60-second voice message fits in
-    the post-response `waitUntil` window (SPEC §9.3), with margin
-[ ] Workers AI pricing/limits on this account → confirm the quotas in SPEC §8.2
+    if not, which Workers AI ASR model does; RU and EN quality on the real samples
+[ ] LLM for interpretation: compare 2–3 Workers AI models on 20 RU/EN messages
+    (create, several tasks, subtasks, "I finished X and Y", a subtask, an ambiguous
+    match, a question); pick by schema adherence, accuracy, latency, neuron cost
+[ ] full bot path timed on a 60-second voice message: download → transcription →
+    interpretation → writes → reply; p95 recorded against the 20-second criterion
+    (SPEC §10.3)
+[ ] neuron cost per voice message and per text message → per-user quotas and the
+    global ceiling (SPEC §9.4)
+[ ] Telegram OIDC: ID token claims with `openid profile telegram:bot_access`; `id` is
+    the numeric Telegram user id and differs from `sub`; whether `telegram:bot_access`
+    shows as granted; which hosts serve `picture` (CSP img-src)
+[ ] Mini App SDK: @telegram-apps/sdk vs an in-repo shim (size, licence, works without
+    the telegram.org script). Validation against a real launch happens in Phase 5
 ```
 
 **How the OIDC check runs without a deployed callback.** A local script prints an
@@ -79,92 +85,128 @@ the `code` is in the address bar. The owner pastes that URL back. The script exc
 code using `.dev.vars` and prints the claim **names** and value **types**, not the values.
 The code is single-use and expires in minutes.
 
-**Exit:** every box ticked with a one-line result here, and SPEC updated where a result
-changed it.
+**Exit:** every box ticked with a one-line result here.
 
 ---
 
-## 3. Phase 1 — Cleanup, structure, CI
+## 3. Phase 1a — A safe, self-contained build
 
-Behaviour does not change except that AI is removed (it has been inert since the key was
-revoked). Guest mode is the only mode.
+Goal: the live site stops depending on anything removed or external, and deploys through
+Actions. No restructuring yet.
 
 ```text
 [ ] remove @google/genai, express, @types/express, dotenv, tsx, metadata.json,
     the vite `define` of GEMINI_API_KEY, AI Studio comments, .env.example
-[ ] package name, scripts (dev, build, test, typecheck, lint), Node version pinned
-[ ] dependencies updated; `npm audit` reports no high or critical issues
-    (GitHub currently reports 38, most expected to go with the removed packages)
-[ ] split src/App.tsx into components/, hooks/, domain/, storage/
-[ ] TaskRepository interface; LocalTaskRepository over the existing localStorage key
-[ ] domain logic as pure functions with unit tests (see SPEC §16)
-[ ] i18n scaffold: catalogues en/ru, language resolution, all UI strings moved
-[ ] AI buttons hidden in guest mode with a "sign in to use AI" hint (wired in Phase 3)
-[ ] ci.yml (PR) and deploy.yml (main → test → deploy), actions pinned by SHA
-[ ] AGENTS.md rewritten for v2; README updated
+[ ] remove the AI buttons' calls (AI returns in Phase 3) and browser SpeechRecognition
+    (SPEC §11.1)
+[ ] fonts self-hosted; no request leaves the origin (checked in the browser network panel)
+[ ] dependencies updated; `npm audit --audit-level=high` passes
+[ ] package name and scripts (dev, build, test, typecheck, lint); Node version pinned
+[ ] ci.yml and deploy.yml (static deploy for now), actions pinned by SHA
+[ ] README and AGENTS.md: v1 notice replaced with the current state and a pointer to SPEC
 ```
 
-**Exit:** the deployed site behaves as v1 minus Gemini; existing localStorage data loads;
-CI green; deploy from `main` works.
+**Exit:** deployed through Actions; the site works as v1 minus AI and the microphone; the
+network panel shows only same-origin requests; audit clean. → Owner enables branch
+protection.
 
 ---
 
-## 4. Phase 2 — Worker, D1, sign-in, API
+## 4. Phase 1b — Structure and domain
 
 ```text
-[ ] wrangler.jsonc: main; assets with run_worker_first for /api/*, /auth/*, /telegram/*,
-    /health and single-page-application fallback (so /app serves the SPA); D1, DO, AI,
-    cron, observability; ACCESS_MODE=allowlist, ALLOWED_TELEGRAM_IDS=1657755761
-[ ] migrations/0001_init.sql per SPEC §5
-[ ] domain rules enforced in the Worker through the shared src/domain module (SPEC §5)
-[ ] router, problem+json errors, request id, security headers, rate limiter DO
-[ ] Telegram OIDC (SPEC §3.2), sessions (§3.5), allowlist (§3.6)
-[ ] /api/me, tasks, subtasks, order, import, export, account deletion
-[ ] RemoteTaskRepository; signed-in mode in the UI; guest → account import prompt
-[ ] language and time-zone resolution wired (SPEC §4)
-[ ] deploy.yml: migrations before deploy; /health
-[ ] Worker integration tests (SPEC §16)
+[ ] split src/App.tsx into components/, hooks/, domain/, storage/
+[ ] src/domain: rules of SPEC §5.3 (including the v1 behaviours it corrects: rename
+    keeps tags; subtask add/delete updates parent completion), limits (§5.5), ordering
+    keys (§5.4)
+[ ] TaskRepository interface; LocalTaskRepository over `task_airat_v2` (SPEC §7.2)
+[ ] v1 data notice with JSON download and dismiss (SPEC §1.2)
+[ ] local storage robustness (SPEC §11.1)
+[ ] export in the v2 format
+[ ] unit tests for all of the above
 ```
 
-**Exit:** the owner signs in on task.airat.top, imports local tasks, sees the same tasks on
-a second browser; a non-allowlisted account gets the beta page; tests green.
+**Exit:** guest mode behaves as SPEC §5.3 and §11.1 describe; a v1 browser sees the notice
+once; tests green.
 
 ---
 
-## 5. Phase 3 — AI on the server
+## 5. Phase 1c — Localisation
+
+```text
+[ ] message catalogues en / ru; every user-facing string moved out of components
+[ ] language resolution for guests (SPEC §4: browser, then en); a language switcher
+[ ] dates and numbers formatted with Intl for the active language
+```
+
+**Exit:** the whole guest UI works in both languages; no hard-coded strings (checked by a
+test that renders with a pseudo-locale).
+
+---
+
+## 6. Phase 2 — Worker, D1, sign-in, API, sync
+
+```text
+[ ] wrangler.jsonc: main; assets with binding ASSETS, run_worker_first: true,
+    single-page-application fallback (so /app serves the SPA); D1, DO, AI, cron,
+    observability; ACCESS_MODE=allowlist, ALLOWED_TELEGRAM_IDS=1657755761
+[ ] migrations/0001_init.sql per SPEC §5.1
+[ ] router, problem+json errors, request id, security headers on every response
+    (SPEC §12), rate limiter DO
+[ ] Telegram OIDC (SPEC §3.2), sessions (§3.5), allowlist (§3.6)
+[ ] /api/me, tasks, subtasks, move, versions, ETag/304
+[ ] actions and undo for deletes (SPEC §8)
+[ ] import with the four outcomes and batching, export (SPEC §7.2)
+[ ] RemoteTaskRepository: sequential mutation queue, refetch on failure, polling
+    (SPEC §7.1, §7.3); signed-in mode in the UI; import prompt
+[ ] language and time-zone resolution for accounts (SPEC §4)
+[ ] deploy.yml: migrations before deploy; /health with telegram = not_configured
+[ ] Worker integration and actions tests (SPEC §16)
+```
+
+**Exit:** the owner signs in on task.airat.top, imports guest tasks (a second import only
+skips), sees the same tasks in a second browser within 30 seconds, undoes a delete; a
+non-allowlisted account gets the beta page; security headers present on `/` and `/app`.
+
+---
+
+## 7. Phase 3 — AI on the web
 
 ```text
 [ ] Workers AI client with the models chosen in Phase 0
-[ ] /ai/tags and /ai/decompose for signed-in users; `test` rule kept
-[ ] per-user daily quota DO (SPEC §8.2) and localised "limit reached"
+[ ] /ai/tags and /ai/decompose: version-checked (SPEC §9.3), `test` rule, actions
+    ai_tags / ai_decompose with undo
+[ ] per-user and global quota DOs (SPEC §9.4), localised "limit reached"
 [ ] AI contract tests
 ```
 
-**Exit:** auto-tags and decomposition work signed in; guest mode makes no AI calls.
+**Exit:** auto-tags and decomposition work signed in and can be undone; an edit made while
+AI runs is never overwritten; guest mode makes no AI calls.
 
 ---
 
-## 6. Phase 4 — The bot
+## 8. Phase 4 — The bot
 
 ```text
-[ ] /telegram/webhook: secret check, idempotency, waitUntil, routing (SPEC §9.3)
+[ ] /telegram/webhook: secret check, idempotency, waitUntil, routing (SPEC §10.3)
 [ ] commands /start /today /list /app /help /delete_me, localised
-[ ] text → interpretation → operations → reply with Undo / Open app
-[ ] voice → transcription → same pipeline; transcript quoted
+[ ] interpreter context (SPEC §9.1) and operations (§9.2), including clarify buttons
+[ ] text and voice → operations → reply with Undo / Open app; transcript quoted
+[ ] resend de-duplication (10 minutes, same normalised title)
 [ ] "Done" buttons, pagination edited in place, delete confirmation
-[ ] bot_actions + Undo
 [ ] my_chat_member → can_message
 [ ] scripts/telegram-setup: setWebhook (secret, allowed_updates), setMyCommands,
     setMyName/Description/ShortDescription for en and ru, setChatMenuButton
+[ ] /health telegram component live
 [ ] bot tests on fake updates (SPEC §16)
 ```
 
-**Exit:** the owner creates tasks by text and voice, closes tasks by voice, undoes an AI
-action, uses /today and /list; a non-allowlisted account gets the beta reply with its id.
+**Exit:** the owner creates tasks by text and voice, closes a task and a subtask by voice,
+resolves an ambiguous "done" with a button, undoes an AI action, uses /today and /list.
 
 ---
 
-## 7. Phase 5 — Mini App
+## 9. Phase 5 — Mini App
 
 ```text
 [ ] /app entry, launch params, initData exchange, bearer session
@@ -179,20 +221,22 @@ the web app; works on iOS and Android.
 
 ---
 
-## 8. Phase 6 — Documentation and privacy
+## 10. Phase 6 — Documentation and privacy
 
 ```text
-[ ] privacy.airat.top: server-side data, Workers AI processing, retention, deletion
-    (operator: Armenian sole proprietor — wording confirmed by the owner)
+[ ] privacy.airat.top: server-side data, Workers AI processing, transcripts in the
+    chat, retention, deletion (operator: Armenian sole proprietor — wording confirmed
+    by the owner)
 [ ] README, AGENTS.md, llms.txt final
 [ ] workspace /Users/airat/dev/AGENTS.md: task.airat.top entry updated
 ```
 
-**Exit:** documents match the deployed behaviour. Only then may `ACCESS_MODE=open` be set.
+**Exit:** documents match the deployed behaviour. Only then may `ACCESS_MODE=open` be set
+and BotFather's usage restriction switched off.
 
 ---
 
-## 9. After v2
+## 11. After v2
 
 In priority order: reminders and morning digest → AI due dates → time tracking. Each gets
 its own SPEC section before code.

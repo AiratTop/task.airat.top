@@ -1,5 +1,11 @@
 # task.airat.top
 
+> **Status: v2 in progress.** This README describes v1. Its AI features are inert (the
+> Gemini key was revoked) and the Gemini/Workers Builds instructions below are obsolete —
+> do not set a `GEMINI_API_KEY`: the v1 build compiles it into public JavaScript. Automatic
+> deployment is paused until the new pipeline lands. See [SPEC.md](SPEC.md) and
+> [PLAN.md](PLAN.md).
+
 [![task.airat.top](https://raw.githubusercontent.com/AiratTop/task.airat.top/main/public/screenshot.png)](https://task.airat.top/)
 
 Smart, local-first task manager with manual task planning and optional AI-assisted tagging/decomposition.
